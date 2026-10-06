@@ -78,6 +78,7 @@ fun BudgetScreen(st: AppState) {
                 Art(R.drawable.icon_money_bag, 28.dp)
                 Column1(Modifier.weight(1f)) {
                     KeyValue("Saved to date", money(st.savedToDate(key), cur))
+                    if (plan.savingsTarget > 0) KeyValue("Target this month", money(plan.savingsTarget, cur))
                     if (!p.end.isAfter(LocalDate.now())) KeyValue("Saved this month", money(st.monthSaved(key), cur))
                     else {
                         val wholeBudget = st.monthSaved(key) + st.spent(p) - maxOf(st.spent(p), st.spendable(key))
@@ -135,10 +136,14 @@ private fun BudgetWindow(st: AppState, key: String, plan: Plan, cur: String) {
     val spent = st.spent(p)
     var text by remember(key, plan.budget) { mutableStateOf(plan.budget?.let { plain(it, cur) } ?: "") }
     val v = if (text.isBlank()) null else parseMoney(text, cur)
-    Window("Spendable.exe", header = if (spent > spendable) Px.red else Px.orange) {
+    Window("Spendable.exe", header = when { spent > spendable + plan.savingsTarget -> Px.red; spent > spendable -> Px.yellow; else -> Px.orange }) {
         Label("Spendable this month")
         Text(money(spendable, cur), style = Type.hero, color = if (spendable < 0 || spent > spendable) Px.red else Px.brown)
-        Small("Spent so far ${money(spent, cur)}" + if (spent > spendable) " · over by ${money(spent - spendable, cur)}" else "")
+        Small("Spent so far ${money(spent, cur)}" + when {
+            spent > spendable + plan.savingsTarget -> " · over by ${money(spent - spendable - plan.savingsTarget, cur)}"
+            spent > spendable -> " · ${money(spent - spendable, cur)} into savings"
+            else -> ""
+        })
         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PixelField(text, { text = it }, "Monthly budget (what you plan to spend)", Modifier.weight(1f), keyboard = KeyboardType.Decimal,
                 placeholder = plain(available.coerceAtLeast(0), cur), error = if (text.isNotBlank() && v == null) "Not a number" else null)
@@ -146,7 +151,16 @@ private fun BudgetWindow(st: AppState, key: String, plan: Plan, cur: String) {
         }
         if (v != null && v > available) Small("That's more than the ${money(available, cur)} left after fixed costs and set-asides.", color = Px.red)
         if (plan.budget != null) PixelButton("Use everything available", { App.store.editPlan(key) { it.copy(budget = null) } }, kind = Kind.SECONDARY)
-        Small("Carries over to the next months until you change it. Whatever isn't spent becomes savings.")
+        Rule()
+        var targetText by remember(key, plan.savingsTarget) { mutableStateOf(if (plan.savingsTarget > 0) plain(plan.savingsTarget, cur) else "") }
+        val tv = if (targetText.isBlank()) 0L else parseMoney(targetText, cur)
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PixelField(targetText, { targetText = it }, "Savings target (kept aside first)", Modifier.weight(1f), keyboard = KeyboardType.Decimal,
+                placeholder = "0.00", error = if (tv == null) "Not a number" else null)
+            PixelButton("Set", { App.store.editPlan(key) { it.copy(savingsTarget = tv!!) } }, enabled = tv != null && tv >= 0 && tv != plan.savingsTarget)
+        }
+        if (plan.savingsTarget > 0) Small("${money(plan.budget ?: available, cur)} budget − ${money(plan.savingsTarget, cur)} target = ${money(spendable, cur)} to spend.")
+        Small("The target comes off what you can spend straight away. Spending past that dips into it (the bar pulses yellow); past the target too is over budget (red). Both carry over to the next months. Anything else unspent also becomes savings.")
     }
 }
 

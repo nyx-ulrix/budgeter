@@ -77,11 +77,19 @@ fun HomeScreen(st: AppState) {
         Window("This month", header = if (snap.over) Px.red else Px.orange) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("${money(snap.spent, cur)} / ${money(snap.spendable, cur)}", style = Type.body, modifier = Modifier.weight(1f))
-                if (snap.over) Chip("✖ Over budget", Px.red) else Chip("${paceSymbol(snap.pace)} ${snap.pace.label}", paceColor(snap.pace))
+                when {
+                    snap.over -> Chip("✖ Over budget", Px.red)
+                    snap.dipping -> Chip("▲ Dipping into savings", Px.yellow)
+                    else -> Chip("${paceSymbol(snap.pace)} ${snap.pace.label}", paceColor(snap.pace))
+                }
             }
             MonthBar(st, snap)
             val daysLeft = ChronoUnit.DAYS.between(now, snap.period.end)
-            Small((if (snap.over) "${money(-snap.left, cur)} over" else "${money(snap.left, cur)} left") + " · $daysLeft days to go · resets ${snap.period.end}")
+            Small(when {
+                snap.over -> "${money(snap.spent - snap.spendable - snap.target, cur)} over"
+                snap.dipping -> "${money(snap.dipped, cur)} of your ${money(snap.target, cur)} savings target spent"
+                else -> "${money(snap.left, cur)} left" + if (snap.target > 0) " · ${money(snap.target, cur)} kept for savings" else ""
+            } + " · $daysLeft days to go · resets ${snap.period.end}")
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

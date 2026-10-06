@@ -235,7 +235,7 @@ fun PixelProgress(fraction: Float, modifier: Modifier = Modifier, color: Color =
 @Composable
 fun Chip(text: String, color: Color, modifier: Modifier = Modifier) {
     Box(modifier.frame(color, width = 2.dp).padding(horizontal = 6.dp, vertical = 3.dp)) {
-        Text(text.uppercase(), style = Type.label, color = if (color == Px.cream || color == Px.creamLight) Px.brown else Px.creamLight)
+        Text(text.uppercase(), style = Type.label, color = if (color == Px.cream || color == Px.creamLight || color == Px.yellow) Px.brown else Px.creamLight)
     }
 }
 

@@ -45,17 +45,19 @@ import com.nyxulrix.budgeter.data.currency
 object CategoryColors {
     val FIXED = 0xFF7A6248.toInt()
     val OVER = 0xFFC93721.toInt()
+    val DIP = 0xFFF2C230.toInt()          // dipping into the savings target
+    val TARGET_ZONE = 0x59F2C230          // the untouched savings target, faint yellow
     private val defaults = listOf(
         0xFFF4512A, // Food: orange
         0xFF2459A6, // Transport: blue
         0xFF4A9A78, // Groceries: green
-        0xFFE0A030, // Shopping: amber
+        0xFF6A5ACD, // Shopping: slate
         0xFF10172F, // Bills: navy
         0xFF9A4A8C, // Fun: plum
         0xFF3FA7C0, // Health: teal
         0xFF8C7B5A, // Other: khaki
     ).map { it.toInt() }
-    private val extras = listOf(0xFFB86B3A, 0xFF5B6F2E, 0xFF6A5ACD, 0xFFD46A8F, 0xFF2F8F8F, 0xFF8A5A2B).map { it.toInt() }
+    private val extras = listOf(0xFFB86B3A, 0xFF5B6F2E, 0xFFD46A8F, 0xFF2F8F8F, 0xFF8A5A2B, 0xFF4F6D7A).map { it.toInt() }
 
     fun of(category: String): Int {
         val i = DEFAULT_CATEGORIES.indexOf(category)
@@ -75,13 +77,19 @@ fun AppState.monthSegments(snap: Snapshot): List<Segment> {
         order.mapNotNull { c -> snap.categories[c]?.takeIf { it > 0 }?.let { Segment(c, it, CategoryColors.of(c)) } }
 }
 
-/** Denominator for [monthSegments]: fixed costs plus the budget, or plus spending once it's over. */
-fun Snapshot.barTotal(): Long = (fixed + maxOf(spendable, spent)).coerceAtLeast(1)
+/** Denominator for [monthSegments]: fixed costs plus the budget and savings target, or plus spending once it's over. */
+fun Snapshot.barTotal(): Long = (fixed + maxOf(spendable + target, spent)).coerceAtLeast(1)
+
+/** What's left of the bar after spending: free money, then the untouched part of the savings target. */
+fun Snapshot.freeAndTarget(): Pair<Long, Long> = (spendable - spent).coerceAtLeast(0) to (target - dipped)
+
+/** Red when over budget, yellow when dipping into savings, else null. */
+fun Snapshot.alertArgb(): Int? = if (over) CategoryColors.OVER else if (dipping) CategoryColors.DIP else null
 
 @Composable
 fun reducedMotion(): Boolean = Settings.Global.getFloat(LocalContext.current.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
 
-/** Colour-coded month bar with legend. Pulses red in hard steps when over budget. */
+/** Colour-coded month bar with legend. Pulses yellow when dipping into savings, red when over budget, in hard steps. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun MonthBar(st: AppState, snap: Snapshot, legend: Boolean = true) {
@@ -90,7 +98,8 @@ fun MonthBar(st: AppState, snap: Snapshot, legend: Boolean = true) {
     val segs = st.monthSegments(snap)
     val total = snap.barTotal()
     val still = reducedMotion()
-    val pulse = if (snap.over && !still) rememberInfiniteTransition(label = "over").animateFloat(
+    val alert = snap.alertArgb()?.let { Color(it) }
+    val pulse = if (alert != null && !still) rememberInfiniteTransition(label = "alert").animateFloat(
         1f, 0.35f, infiniteRepeatable(tween(900, easing = { t -> if (t < 0.5f) 0f else 1f }), RepeatMode.Reverse, StartOffset(0)), label = "pulse",
     ).value else 1f
     val used = segs.sumOf { it.amount }
@@ -98,18 +107,19 @@ fun MonthBar(st: AppState, snap: Snapshot, legend: Boolean = true) {
         Row(
             Modifier.fillMaxWidth().height(22.dp)
                 .clickable(role = Role.Button, onClickLabel = "Show spending by category") { details = true }
-                .border(3.dp, if (snap.over) Px.red else Px.brown).background(Px.creamLight).padding(3.dp)
+                .border(3.dp, alert ?: Px.brown).background(Px.creamLight).padding(3.dp)
                 .semantics {
-                    contentDescription = (if (snap.over) "Over budget. " else "") +
+                    contentDescription = (if (snap.over) "Over budget. " else if (snap.dipping) "Dipping into savings. " else "") +
                         segs.joinToString { "${it.label} ${money(it.amount, cur)}" } + ". ${money(snap.left.coerceAtLeast(0), cur)} left"
                 },
         ) {
             segs.filter { it.amount > 0 }.forEach { s ->
-                Box(Modifier.weight(s.amount.toFloat() / total).height(16.dp).alpha(if (snap.over) pulse else 1f)
-                    .background(if (snap.over) Px.red else Color(s.argb)))
+                Box(Modifier.weight(s.amount.toFloat() / total).height(16.dp).alpha(if (alert != null) pulse else 1f)
+                    .background(alert ?: Color(s.argb)))
             }
-            val rest = (total - used).coerceAtLeast(0)
-            if (rest > 0) Box(Modifier.weight(rest.toFloat() / total).height(16.dp))
+            val (free, targetLeft) = snap.freeAndTarget()
+            if (free > 0) Box(Modifier.weight(free.toFloat() / total).height(16.dp))
+            if (targetLeft > 0) Box(Modifier.weight(targetLeft.toFloat() / total).height(16.dp).background(Color(CategoryColors.TARGET_ZONE)))
         }
         if (legend) FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             segs.filter { it.amount > 0 }.forEach { s ->
@@ -146,6 +156,11 @@ private fun MonthDetails(st: AppState, snap: Snapshot, onDismiss: () -> Unit) {
         Rule()
         KeyValue("Spent (not counting fixed)", money(snap.spent, cur))
         KeyValue("Budget", money(snap.spendable, cur))
-        KeyValue(if (snap.over) "Over by" else "Left", money(kotlin.math.abs(snap.left), cur), if (snap.over) Px.red else Px.brown)
+        if (snap.target > 0) KeyValue("Savings target", money(snap.target, cur) + if (snap.dipped > 0) " (${money(snap.dipped, cur)} spent)" else "")
+        KeyValue(
+            when { snap.over -> "Over by"; snap.dipping -> "Into savings"; else -> "Left" },
+            money(if (snap.over) snap.spent - snap.spendable - snap.target else kotlin.math.abs(snap.left), cur),
+            if (snap.over) Px.red else Px.brown,
+        )
     }
 }

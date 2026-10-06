@@ -105,4 +105,18 @@ class LedgerTest {
         val allDaily = groceries.copy(monthlyCategories = emptySet())
         assertEquals(27_000L, allDaily.snapshot(oct5).day.spent)
     }
+
+    @Test fun savingsTargetComesOffFirstAndBuffersOverspend() {
+        val plan = Plan(300_000, budget = 150_000, savingsTarget = 30_000)
+        val st = AppState(setup, plans = mapOf("2026-10" to plan))
+        assertEquals(120_000L, st.spendable("2026-10"))                      // 1500 budget − 300 target
+        assertEquals(120_000L, st.spendable("2026-11"))                      // carries over
+        fun at(spent: Long) = st.copy(txns = listOf(Txn(date = "2026-10-02", total = spent))).snapshot(oct5)
+        at(100_000).let { assertEquals(false, it.dipping); assertEquals(false, it.over) }
+        at(130_000).let { assertEquals(true, it.dipping); assertEquals(false, it.over); assertEquals(10_000L, it.dipped) }
+        at(150_000).let { assertEquals(true, it.dipping); assertEquals(30_000L, it.dipped) }   // exactly the whole target
+        at(150_001).let { assertEquals(false, it.dipping); assertEquals(true, it.over) }
+        val noBudget = AppState(setup, plans = mapOf("2026-10" to Plan(300_000, savingsTarget = 50_000)))
+        assertEquals(250_000L, noBudget.spendable("2026-10"))                 // everything available − target
+    }
 }

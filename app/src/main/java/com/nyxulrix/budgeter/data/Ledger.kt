@@ -23,7 +23,7 @@ val AppState.liveTxns: List<Txn> get() = txns.filter { !it.deleted }
  * savings, caps and monthly budget (not extras, reservations or trip funds, which are one-offs).
  */
 fun AppState.planFor(key: String): Plan = plans[key] ?: plans.filterKeys { it < key }.maxByOrNull { it.key }?.value?.let { p ->
-    Plan(p.income, p.lines.filter { it.kind == LineKind.FIXED || it.kind == LineKind.SAVINGS }, p.caps, p.budget)
+    Plan(p.income, p.lines.filter { it.kind == LineKind.FIXED || it.kind == LineKind.SAVINGS }, p.caps, p.budget, p.savingsTarget)
 } ?: Plan()
 
 /**
@@ -50,8 +50,11 @@ val Plan.spendable: Long get() = income + lines.sumOf { if (it.kind.adds) it.amo
 /** Money left after fixed costs and everything set aside, including monthly trip savings. */
 fun AppState.available(key: String): Long = planFor(key).spendable - tripMonthlyTotal(key)
 
-/** What I can spend this month: my chosen monthly budget, or everything available if I haven't set one. */
-fun AppState.spendable(key: String): Long = planFor(key).budget ?: available(key)
+/**
+ * What I can spend this month: my chosen monthly budget (or everything available if I haven't set one),
+ * minus the savings target, which is taken off straight away.
+ */
+fun AppState.spendable(key: String): Long = planFor(key).let { (it.budget ?: available(key)) - it.savingsTarget }
 
 private fun Txn.inBudget(p: Period) = !deleted && tripId == null && LocalDate.parse(date) in p
 
@@ -65,9 +68,15 @@ data class Snapshot(
     val pace: Pace,
     val fixed: Long = 0,
     val categories: Map<String, Long> = emptyMap(),
+    val target: Long = 0,                              // savings target, a buffer past spendable
 ) {
     val left: Long get() = spendable - spent
-    val over: Boolean get() = spent > spendable
+    /** Spent past the spendable money and into the savings target. */
+    val dipping: Boolean get() = spent > spendable && !over
+    /** Spent past the savings target too: over the whole budget. */
+    val over: Boolean get() = spent > spendable + target
+    /** How much of the savings target has been spent. */
+    val dipped: Long get() = (spent - spendable).coerceIn(0, target)
     val fraction: Float get() = if (spendable <= 0) 1f else (spent.toFloat() / spendable).coerceIn(0f, 1f)
 }
 
@@ -95,7 +104,7 @@ fun AppState.snapshot(date: LocalDate = LocalDate.now()): Snapshot {
     val monthlyToday = onDay.sumOf { it.budgetImpact } - dailyToday
     val spent = inP.sumOf { it.budgetImpact }
     return Snapshot(p, spendable, spent, today(spendable, before + monthlyToday, dailyToday, date, p), pace(spendable, spent, date, p),
-        planFor(p.key).total(LineKind.FIXED), byCategory(p))
+        planFor(p.key).total(LineKind.FIXED), byCategory(p), planFor(p.key).savingsTarget)
 }
 
 /** Budget-impact per category in a period. Itemised bills with per-item categories are split across them. */

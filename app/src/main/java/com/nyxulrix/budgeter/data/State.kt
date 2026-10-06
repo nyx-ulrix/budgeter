@@ -47,6 +47,7 @@ data class Plan(
     val lines: List<Line> = emptyList(),
     val caps: Map<String, Long> = emptyMap(),         // optional per-category caps
     val budget: Long? = null,                         // what I plan to spend this month; null = all that's available
+    val savingsTarget: Long = 0,                      // forced saving: taken off spendable money straight away
 )
 
 @Serializable

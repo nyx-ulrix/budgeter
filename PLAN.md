@@ -246,4 +246,5 @@ Each ends with a working build. After M9, one Fable audit of the whole app, then
 | Widgets | Two widgets, both drawn in the app's pixel style. "Budgeter" (4×1): left to spend today, a camera button (opens the receipt scanner) and "+" (new expense). "Budgeter: bars" (4×1): today's bar above the month's colour bar. Quick add, Planned and Today widgets were removed (v1.2). |
 | UI | Folds start closed and close again when you switch tabs. Transactions' search and filters sit in one fold. AI model is a dropdown loaded from the provider. In-app pixel camera. |
 | Production | Test server removed. The install button installs the release build. |
+| Savings target (v1.3) | A monthly amount kept aside first: spendable = (budget, or everything available) − target, and the daily budget follows. Spending past spendable dips into the target: the month bar pulses yellow with a "Dipping into savings" chip. Past the target too is over budget: red. Carries over like the budget. |
 

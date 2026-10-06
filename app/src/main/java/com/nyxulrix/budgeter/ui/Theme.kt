@@ -31,6 +31,7 @@ object Px {
     val green = Color(0xFF4A9A78)
     val red = Color(0xFFC93721)
     val white = Color(0xFFFFF4DC)
+    val yellow = Color(0xFFF2C230)   // dipping into savings
     val muted = Color(0xFF2B1D12).copy(alpha = 0.55f)
 }
 

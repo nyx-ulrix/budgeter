@@ -14,7 +14,9 @@ import com.nyxulrix.budgeter.data.currency
 import com.nyxulrix.budgeter.data.snapshot
 import com.nyxulrix.budgeter.ui.CategoryColors
 import com.nyxulrix.budgeter.ui.Glyphs
+import com.nyxulrix.budgeter.ui.alertArgb
 import com.nyxulrix.budgeter.ui.barTotal
+import com.nyxulrix.budgeter.ui.freeAndTarget
 import com.nyxulrix.budgeter.ui.monthSegments
 
 /**
@@ -129,10 +131,15 @@ object WidgetArt {
 
         y = top + section + (section - barH - a.px(14f)) / 2 + a.px(10f)
         a.text("MONTH", a.l, y, a.label, 9f, BROWN)
-        a.text(if (snap.over) "${money(snap.spent - snap.spendable, cur)} over" else "${money(snap.left, cur)} left", a.r, y, a.body, 15f, if (snap.over) RED else MUTED, right = true)
+        val alert = snap.alertArgb()
+        a.text(when {
+            snap.over -> "${money(snap.spent - snap.spendable - snap.target, cur)} over"
+            snap.dipping -> "${money(snap.dipped, cur)} into savings"
+            else -> "${money(snap.left, cur)} left"
+        }, a.r, y, a.body, 15f, if (snap.over) RED else MUTED, right = true)
         y += a.px(4f)
         val barB = y + barH
-        a.rect(a.l, y, a.r, barB, if (snap.over) RED else BROWN)
+        a.rect(a.l, y, a.r, barB, alert ?: BROWN)
         a.rect(a.l + a.px(2f), y + a.px(2f), a.r - a.px(2f), barB - a.px(2f), CREAM_LIGHT)
         val total = snap.barTotal().toFloat()
         var x = a.l + a.px(2f)
@@ -140,9 +147,12 @@ object WidgetArt {
         for (s in st.monthSegments(snap)) {
             if (s.amount <= 0) continue
             val wSeg = span * (s.amount / total)
-            a.rect(x, y + a.px(2f), (x + wSeg).coerceAtMost(a.r - a.px(2f)), barB - a.px(2f), if (snap.over) CategoryColors.OVER else s.argb)
+            a.rect(x, y + a.px(2f), (x + wSeg).coerceAtMost(a.r - a.px(2f)), barB - a.px(2f), alert ?: s.argb)
             x += wSeg
         }
+        val (free, targetLeft) = snap.freeAndTarget()
+        x += span * (free / total)
+        if (targetLeft > 0) a.rect(x, y + a.px(2f), (x + span * (targetLeft / total)).coerceAtMost(a.r - a.px(2f)), barB - a.px(2f), CategoryColors.TARGET_ZONE)
         return a.bmp
     }
 }
