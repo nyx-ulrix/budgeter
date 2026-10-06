@@ -33,6 +33,8 @@ object WidgetArt {
     private const val BROWN = 0xFF2B1D12.toInt()
     private const val MUTED = 0x8C2B1D12.toInt()
     private const val RED = 0xFFC93721.toInt()
+    private const val GREEN = 0xFF4A9A78.toInt()
+    private const val ORANGE_DARK = 0xFFB8461F.toInt()   // today's budget used up, spending saved-up money
 
     /** A canvas with dp helpers, the three fonts and the window frame already drawn. */
     private class Art(ctx: Context, wDp: Float, hDp: Float) {
@@ -108,11 +110,14 @@ object WidgetArt {
         val cam = RectF(plus.left - a.px(GAP + BUTTON), plus.top, plus.left - a.px(GAP), plus.bottom)
         a.button(plus, Glyphs.plus)
         a.button(cam, Glyphs.camera)
-        val left = snap.day.remaining
-        val amount = money(left, st.currency)
+        val day = snap.day
+        val amount = money(day.dailyLeft, st.currency)
         val sp = a.fitSize(amount, a.display, 22f, cam.left - a.l - a.px(10f))
-        a.text("LEFT TODAY", a.l, cy - a.px(4f) - a.px(sp) / 2, a.label, 10f, BROWN)
-        a.text(amount, a.l, cy + a.px(6f) + a.px(sp) / 2, a.display, sp, if (left < 0) RED else BROWN)
+        val color = when { day.remaining < 0 -> RED; day.dailyLeft < 0 -> ORANGE; else -> BROWN }
+        val shift = if (day.bonus > 0) a.px(7f) else 0f
+        a.text("LEFT TODAY", a.l, cy - a.px(4f) - a.px(sp) / 2 - shift, a.label, 10f, BROWN)
+        a.text(amount, a.l, cy + a.px(6f) + a.px(sp) / 2 - shift, a.display, sp, color)
+        if (day.bonus > 0) a.text("+${money(day.bonusLeft, st.currency)} saved up", a.l, cy + a.px(20f) + a.px(sp) / 2 - shift, a.body, 15f, GREEN)
         return a.bmp
     }
 
@@ -124,15 +129,17 @@ object WidgetArt {
         val top = a.px(FRAME + 6f)
         val section = (a.bottom - a.px(FRAME + 6f) - top) / 2
         val barH = (section - a.px(20f)).coerceIn(a.px(10f), a.px(30f))
-        val left = snap.day.remaining
+        val left = snap.day.dailyLeft
 
         var y = top + (section - barH - a.px(14f)) / 2 + a.px(10f)
-        val avail = snap.day.available
-        val dayFrac = if (avail <= 0) (if (snap.day.spent > 0) 1f else 0f) else (snap.day.spent.toFloat() / avail).coerceIn(0f, 1f)
+        val budget = snap.day.budget
+        val dayFrac = if (budget <= 0) (if (snap.day.spent > 0) 1f else 0f) else (snap.day.spent.toFloat() / budget).coerceIn(0f, 1f)
+        val dayColor = when { snap.day.remaining < 0 -> RED; left < 0 -> ORANGE_DARK; else -> ORANGE }
         a.text("TODAY", a.l, y, a.label, 9f, BROWN)
-        a.text("${money(snap.day.spent, cur)} / ${money(avail, cur)}", a.r, y, a.body, 15f, if (left < 0) RED else MUTED, right = true)
+        a.text("${money(snap.day.spent, cur)} / ${money(budget, cur)}" + if (snap.day.bonus > 0) " +${money(snap.day.bonusLeft, cur)}" else "",
+            a.r, y, a.body, 15f, if (snap.day.remaining < 0) RED else MUTED, right = true)
         y += a.px(4f)
-        a.blocks(y, y + barH, dayFrac, if (left < 0) RED else ORANGE)
+        a.blocks(y, y + barH, dayFrac, dayColor)
 
         y = top + section + (section - barH - a.px(14f)) / 2 + a.px(10f)
         a.text("MONTH", a.l, y, a.label, 9f, BROWN)

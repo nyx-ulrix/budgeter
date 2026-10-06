@@ -32,7 +32,12 @@ fun periodOf(date: LocalDate, startDay: Int): Period {
  */
 data class Day(val budget: Long, val spent: Long, val bonus: Long = 0) {
     val available: Long get() = budget + bonus
+    /** Today's own budget left, the headline number. Below zero means you're into the saved-up bonus. */
+    val dailyLeft: Long get() = budget - spent
+    /** Including the saved-up bonus; below zero is a real overspend. */
     val remaining: Long get() = budget + bonus - spent
+    /** Saved-up money still unused after today's spending. */
+    val bonusLeft: Long get() = (bonus - (spent - budget).coerceAtLeast(0)).coerceAtLeast(0)
 }
 
 /**

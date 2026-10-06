@@ -59,6 +59,11 @@ class CoreTest {
         assertEquals(1_500L, saver.bonus)
         assertEquals(2_500L, saver.remaining)
         assertEquals(0L, today(31_000, 500, 0, LocalDate.of(2026, 10, 1), p).bonus)   // nothing before day 1
+        // Headline shows only today's own budget; spending past it uses the saved-up bonus first.
+        val dipped = today(31_000, 500, 1_400, LocalDate.of(2026, 10, 3), p)
+        assertEquals(-400L, dipped.dailyLeft)
+        assertEquals(1_100L, dipped.bonusLeft)
+        assertEquals(1_100L, dipped.remaining)
     }
 
     @Test fun pacing() {

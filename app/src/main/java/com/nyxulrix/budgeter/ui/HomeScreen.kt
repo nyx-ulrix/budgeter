@@ -46,6 +46,16 @@ fun paceColor(p: Pace): Color = when (p) {
     Pace.OVER -> Px.red
 }
 
+/** Brown normally, orange once today's budget is used and you're into saved-up money, red past that too. */
+fun dayColor(d: com.nyxulrix.budgeter.core.Day) = when { d.remaining < 0 -> Px.red; d.dailyLeft < 0 -> Px.orange; else -> Px.brown }
+
+/** The small line about money saved up from earlier days, or null when there's none. */
+fun savedUpLine(d: com.nyxulrix.budgeter.core.Day, cur: String): String? = when {
+    d.bonus <= 0 -> null
+    d.dailyLeft < 0 -> "Using saved-up money: ${money(d.bonusLeft, cur)} of ${money(d.bonus, cur)} left"
+    else -> "+ ${money(d.bonus, cur)} saved up from earlier days, yours to use any day this month"
+}
+
 fun paceSymbol(p: Pace) = when (p) { Pace.ON_TRACK -> "●"; Pace.SLIGHTLY_OVER -> "▲"; Pace.OVER -> "✖" }
 
 @Composable
@@ -64,14 +74,14 @@ fun HomeScreen(st: AppState) {
                 Art(artId("mascot_${moodOf(snap.pace)}", R.drawable.mascot_idle), 56.dp, description = null)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Label("Left to spend today")
-                    Text(money(snap.day.remaining, cur), style = Type.hero, color = if (snap.day.remaining < 0) Px.red else Px.brown)
+                    Text(money(snap.day.dailyLeft, cur), style = Type.hero, color = dayColor(snap.day))
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Small("Budget ${money(snap.day.budget, cur)}")
                 Small("Spent ${money(snap.day.spent, cur)}")
             }
-            if (snap.day.bonus > 0) Small("+ ${money(snap.day.bonus, cur)} saved up from earlier days, yours to use any day this month", color = Px.green)
+            savedUpLine(snap.day, cur)?.let { Small(it, color = if (snap.day.dailyLeft < 0) Px.orange else Px.green) }
             Sparkline(st, now)
         }
 

@@ -159,7 +159,7 @@ private fun BudgetWindow(st: AppState, key: String, plan: Plan, cur: String) {
                 placeholder = "0.00", error = if (tv == null) "Not a number" else null)
             PixelButton("Set", { App.store.editPlan(key) { it.copy(savingsTarget = tv!!) } }, enabled = tv != null && tv >= 0 && tv != plan.savingsTarget)
         }
-        if (plan.savingsTarget > 0) Small("${money(plan.budget ?: available, cur)} budget − ${money(plan.savingsTarget, cur)} target = ${money(spendable, cur)} to spend.")
+        Small("${money(plan.budget ?: available, cur)} budget − ${money(plan.savingsTarget, cur)} savings target = ${money(spendable, cur)} to spend.", color = Px.brown)
         Small("The target comes off what you can spend straight away. Spending past that dips into it (the bar pulses yellow); past the target too is over budget (red). Both carry over to the next months. Anything else unspent also becomes savings.")
     }
 }

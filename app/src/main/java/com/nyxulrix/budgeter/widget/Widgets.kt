@@ -63,7 +63,7 @@ class SpendWidget : GlanceAppWidget() {
         Box(GlanceModifier.fillMaxSize().clickable(open(context, "home"))) {
             Image(
                 ImageProvider(WidgetArt.main(context, st, size.width.value, size.height.value)),
-                "Budgeter: ${money(snap.day.remaining, st.currency)} left to spend today",
+                "Budgeter: ${money(snap.day.dailyLeft, st.currency)} left to spend today",
                 GlanceModifier.fillMaxSize(), contentScale = ContentScale.FillBounds,
             )
             Box(

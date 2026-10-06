@@ -63,7 +63,8 @@ fun CompactScreen(st: AppState, adding: Boolean = false, onDone: () -> Unit = {}
             Art(artId("mascot_${moodOf(snap.pace)}", R.drawable.mascot_idle), 32.dp)
             Column(Modifier.weight(1f)) {
                 Text("TODAY", style = Type.label, color = Px.creamLight)
-                Text(money(snap.day.remaining, cur), style = Type.number.copy(fontSize = 14.sp), color = if (snap.day.remaining < 0) Px.white else Px.creamLight)
+                Text(money(snap.day.dailyLeft, cur), style = Type.number.copy(fontSize = 14.sp), color = if (snap.day.dailyLeft < 0) Px.white else Px.creamLight)
+                if (snap.day.bonus > 0) Text("+${money(snap.day.bonusLeft, cur)} saved up", style = Type.small, color = Px.creamLight)
             }
         }
         if (add) {
