@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_spend">Spending this month vs budget</string>
+    <string name="widget_daily">Budget for today, spent and left</string>
+    <string name="widget_quick">One tap to add an expense or scan</string>
+    <string name="widget_planned">Next planned purchases</string>
+</resources>
