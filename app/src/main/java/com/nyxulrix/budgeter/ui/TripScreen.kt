@@ -55,7 +55,7 @@ fun TripsWindow(st: AppState) {
     val cur = st.currency
     var adding by remember { mutableStateOf(false) }
     val today = LocalDate.now()
-    Window("Trips") {
+    FoldWindow("Trips") {
         if (st.trips.isEmpty()) Small("Plan a trip's costs and set some money aside each month. Spending on the trip then stays out of your daily budget.")
         st.trips.sortedBy { it.start }.forEach { t ->
             val started = !today.isBefore(LocalDate.parse(t.start))

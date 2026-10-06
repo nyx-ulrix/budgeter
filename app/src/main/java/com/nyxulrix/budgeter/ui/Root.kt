@@ -63,6 +63,7 @@ sealed interface Screen {
     data object Sync : Screen
     data object EditSetup : Screen
     data object Credits : Screen
+    data object Camera : Screen
 }
 
 /** Tab + a stack of screens. No navigation library: five tabs and a handful of screens. */
@@ -87,6 +88,7 @@ fun Root(nav: Nav) {
             return@Box
         }
         val scanner = rememberScanner(st) { receipt, text -> nav.go(Screen.Expense(receipt = receipt, ocrText = text)) }
+        scanner.openCamera = { nav.go(Screen.Camera) }
         LaunchedEffect(nav.pendingScan) { if (nav.pendingScan) { nav.pendingScan = false; scanner.camera() } }
         val compact = isCompact()
         val top = nav.stack.lastOrNull()
@@ -114,6 +116,7 @@ fun Root(nav: Nav) {
                         Screen.Sync -> SyncScreen(st)
                         Screen.EditSetup -> SetupScreen(st.setup)
                         Screen.Credits -> CreditsScreen()
+                        Screen.Camera -> CameraScreen()
                     }
                 }
                 if (nav.stack.isEmpty()) BottomBar(nav)

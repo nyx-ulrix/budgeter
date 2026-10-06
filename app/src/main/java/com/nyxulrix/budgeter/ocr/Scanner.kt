@@ -54,12 +54,15 @@ object Ocr {
 class Scanner(private val ctx: Context, private val scope: CoroutineScope, private val state: () -> AppState, private val onResult: (ParsedReceipt, String) -> Unit) {
     var busy by mutableStateOf(false); private set
     var status by mutableStateOf(""); private set
-    internal lateinit var cameraLauncher: ManagedActivityResultLauncher<Uri, Boolean>
     internal lateinit var pickLauncher: ManagedActivityResultLauncher<PickVisualMediaRequest, Uri?>
-    private val photo = File(File(ctx.cacheDir, "receipts").apply { mkdirs() }, "receipt.jpg")
-    internal val photoUri: Uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.files", photo)
+    /** Where the in-app camera saves the shot. Private to the app; deleted after reading. */
+    val photoFile = File(File(ctx.cacheDir, "receipts").apply { mkdirs() }, "receipt.jpg")
+    private val photoUri: Uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.files", photoFile)
 
-    fun camera() = runCatching { cameraLauncher.launch(photoUri) }.onFailure { toast("No camera app found.") }
+    /** Opens the in-app camera screen (set by the app shell, which owns navigation). */
+    var openCamera: () -> Unit = {}
+    fun camera() = openCamera()
+    fun readPhoto() = read(photoUri)
     fun screenshot() = pickLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
 
     internal fun read(uri: Uri) = scope.launch {
@@ -80,7 +83,7 @@ class Scanner(private val ctx: Context, private val scope: CoroutineScope, priva
             }
             onResult(receipt, text)
         } finally {
-            photo.delete()
+            photoFile.delete()
             busy = false
         }
     }
@@ -95,7 +98,6 @@ fun rememberScanner(st: AppState, onResult: (ParsedReceipt, String) -> Unit): Sc
     val current by rememberUpdatedState(st)
     val callback by rememberUpdatedState(onResult)
     val scanner = remember { Scanner(ctx, scope, { current }, { r, t -> callback(r, t) }) }
-    scanner.cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok -> if (ok) scanner.read(scanner.photoUri) }
     scanner.pickLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> uri?.let { scanner.read(it) } }
     return scanner
 }

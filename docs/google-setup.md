@@ -1,6 +1,6 @@
 # Turning on Google Sheets sync
 
-The app code is done. Google only lets it talk to Sheets once a Cloud project knows about the app. This takes about ten minutes and costs nothing.
+**Status: done on 2026-10-06.** Project `budgeter-510810`, Sheets API on, consent screen In production with only `drive.file`, Android client "Budgeter Android" for `com.nyxulrix.budgeter` with the release key below. Home page and privacy policy: https://nyx-ulrix.github.io/budgeter/. The steps are kept here in case it ever needs redoing.
 
 ## 1. Create the project
 

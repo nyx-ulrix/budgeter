@@ -114,7 +114,7 @@ fun BudgetScreen(st: AppState) {
 
         TripsWindow(st)
 
-        Window("Planned purchases") {
+        FoldWindow("Planned purchases") {
             val open = st.planned.filter { it.status == PlannedStatus.OPEN }.sortedWith(compareBy({ it.priority }, { it.targetMonth }))
             if (open.isEmpty()) Small("Add things you want to buy later. Reserve money bit by bit, or buy now.")
             open.forEach { pl ->

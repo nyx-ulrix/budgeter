@@ -3,7 +3,7 @@
 Android budget planner from `Budget_Planner_App_PRD.md`, skinned with the Nostelika pixel-art brief.
 This file records every decision that differs from or adds to those two briefs. Where it is silent, the briefs apply.
 
-Status: v1 built and smoke-tested on an emulator, 2026-10-06. Sheets sync is coded but waits on the Google Cloud setup in `docs/google-setup.md`.
+Status: v1.0.0, 2026-10-06. Google Sheets sync is configured (project budgeter-510810). Releases publish from GitHub and the app updates itself.
 
 ---
 

@@ -16,7 +16,7 @@ val keys = Properties().apply { rootProject.file("keystore.properties").takeIf {
 fun key(name: String, env: String): String? = keys.getProperty(name) ?: System.getenv(env)?.takeIf { it.isNotBlank() }
 
 // Version comes from the release tag (-PappVersion=1.2.3). versionCode must grow with it: 1.2.3 → 10203.
-val appVersion = (findProperty("appVersion") as String?)?.removePrefix("v") ?: "0.2.0"
+val appVersion = (findProperty("appVersion") as String?)?.removePrefix("v") ?: "1.0.0"
 val v = appVersion.split(".").map { it.takeWhile(Char::isDigit).toIntOrNull() ?: 0 } + listOf(0, 0, 0)
 
 android {
@@ -62,6 +62,10 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:2.10.4")
     implementation("androidx.glance:glance-appwidget:1.1.1")
     implementation("com.google.mlkit:text-recognition:16.0.1")
+    implementation("androidx.camera:camera-camera2:1.5.0")
+    implementation("androidx.camera:camera-lifecycle:1.5.0")
+    implementation("androidx.camera:camera-view:1.5.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
     implementation("com.google.android.gms:play-services-auth:21.4.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2")
     testImplementation("junit:junit:4.13.2")
