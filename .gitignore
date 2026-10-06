@@ -8,3 +8,5 @@ captures/
 *.keystore
 *.jks
 graphify-out/
+keystore.properties
+test-release/

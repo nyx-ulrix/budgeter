@@ -6,6 +6,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.nyxulrix.budgeter.ai.OpenRouterLogin
+import com.nyxulrix.budgeter.update.Updater
+import kotlinx.coroutines.launch
 import com.nyxulrix.budgeter.ui.BudgeterTheme
 import com.nyxulrix.budgeter.ui.Nav
 import com.nyxulrix.budgeter.ui.Root
@@ -19,6 +21,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         handle(intent)
+        App.scope.launch { Updater.check(applicationContext) }
         setContent { BudgeterTheme { Root(nav) } }
     }
 

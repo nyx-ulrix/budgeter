@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -7,6 +9,16 @@ plugins {
 
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
 
+// Signing: keystore.properties on this PC (not in git), or BUDGETER_* environment variables in GitHub Actions.
+// Debug and release builds share the key so a plugged-in install and a GitHub release can update each other.
+// Without either, the standard debug key is used and auto-update can't replace that install.
+val keys = Properties().apply { rootProject.file("keystore.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) } }
+fun key(name: String, env: String): String? = keys.getProperty(name) ?: System.getenv(env)?.takeIf { it.isNotBlank() }
+
+// Version comes from the release tag (-PappVersion=1.2.3). versionCode must grow with it: 1.2.3 → 10203.
+val appVersion = (findProperty("appVersion") as String?)?.removePrefix("v") ?: "0.2.0"
+val v = appVersion.split(".").map { it.takeWhile(Char::isDigit).toIntOrNull() ?: 0 } + listOf(0, 0, 0)
+
 android {
     namespace = "com.nyxulrix.budgeter"
     compileSdk = 36
@@ -14,12 +26,28 @@ android {
         applicationId = "com.nyxulrix.budgeter"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = v[0] * 10000 + v[1] * 100 + v[2]
+        versionName = appVersion
+        // Where the app looks for new versions (GitHub "owner/repo" with public releases).
+        buildConfigField("String", "UPDATE_REPO", "\"${findProperty("updateRepo") ?: "nyx-ulrix/budgeter"}\"")
+    }
+    signingConfigs {
+        key("storeFile", "BUDGETER_KEYSTORE")?.let { store ->
+            create("release") {
+                storeFile = file(store)
+                storePassword = key("storePassword", "BUDGETER_KEYSTORE_PASSWORD")
+                keyAlias = key("keyAlias", "BUDGETER_KEY_ALIAS") ?: "budgeter"
+                keyPassword = key("keyPassword", "BUDGETER_KEY_PASSWORD")
+            }
+        }
     }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
-    buildFeatures { compose = true }
-    buildTypes { release { isMinifyEnabled = false; signingConfig = signingConfigs.getByName("debug") } }
+    buildFeatures { compose = true; buildConfig = true }
+    buildTypes {
+        val signing = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
+        debug { signingConfig = signing }
+        release { isMinifyEnabled = false; signingConfig = signing }
+    }
 }
 
 dependencies {

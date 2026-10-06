@@ -28,9 +28,9 @@ The app code is done. Google only lets it talk to Sheets once a Cloud project kn
 |---|---|
 | Application type | Android |
 | Package name | `com.nyxulrix.budgeter` |
-| SHA-1 certificate fingerprint | `8D:62:9D:69:CE:EC:CF:30:72:7E:FC:69:6A:7A:11:A0:EB:E4:D6:8E` |
+| SHA-1 certificate fingerprint | `13:AD:2E:3F:3A:3B:2B:37:79:6F:AC:8B:C9:34:0F:C1:E4:6E:29:8D` |
 
-That fingerprint is this PC's debug key, which signs every build made here. If you later make a separate release key, add a second Android client with that key's SHA-1.
+That fingerprint is the Budgeter release key. It signs every build: plugged-in installs from this PC and GitHub releases alike.
 
 No client ID needs to be pasted into the app. Google matches the package name and signature.
 

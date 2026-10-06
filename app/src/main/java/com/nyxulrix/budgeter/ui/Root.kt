@@ -96,6 +96,7 @@ fun Root(nav: Nav) {
             if (compact && (top == null || plainAdd)) CompactScreen(st, adding = plainAdd) { if (plainAdd) nav.back() }
             else Column(Modifier.fillMaxSize()) {
                 Toolbar(st)
+                UpdateBanner()
                 Box(Modifier.weight(1f)) {
                     when (val top = nav.stack.lastOrNull()) {
                         null -> when (nav.tab) {

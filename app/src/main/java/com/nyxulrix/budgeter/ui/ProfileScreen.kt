@@ -73,6 +73,7 @@ fun ProfileScreen(st: AppState) {
             PixelButton("Google Sheets sync", { nav.go(Screen.Sync) }, Modifier.fillMaxWidth(), kind = Kind.SECONDARY, glyph = Glyphs.sync)
             PixelButton("Credits", { nav.go(Screen.Credits) }, Modifier.fillMaxWidth(), kind = Kind.SECONDARY, art = R.drawable.icon_heart)
         }
+        UpdatesWindow()
         CategoriesWindow(st)
         Small("Budgeter ${ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName}")
     }
