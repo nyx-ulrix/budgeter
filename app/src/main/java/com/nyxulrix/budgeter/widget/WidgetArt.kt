@@ -13,18 +13,20 @@ import com.nyxulrix.budgeter.data.AppState
 import com.nyxulrix.budgeter.data.currency
 import com.nyxulrix.budgeter.data.snapshot
 import com.nyxulrix.budgeter.ui.CategoryColors
+import com.nyxulrix.budgeter.ui.Glyphs
 import com.nyxulrix.budgeter.ui.barTotal
 import com.nyxulrix.budgeter.ui.monthSegments
 
 /**
- * Draws the main widget as a picture using the app's own pixel fonts, frames and colours, since home-screen
- * widgets can't load custom fonts. Layout constants are in dp so the tap areas laid over it line up.
+ * Draws widgets as pictures using the app's own pixel fonts, frames and colours, since home-screen widgets can't
+ * load custom fonts. Layout constants are in dp so the tap areas laid over the picture line up with it.
  */
 object WidgetArt {
     const val PAD = 10f          // inside the frame
     const val FRAME = 3f
     const val SHADOW = 3f
-    const val BUTTON = 44f       // the "+" button, top-right
+    const val BUTTON = 44f       // square buttons on the main widget
+    const val GAP = 8f           // between the camera and "+" buttons
 
     private const val ORANGE = 0xFFF4512A.toInt()
     private const val CREAM = 0xFFE7D6AD.toInt()
@@ -33,24 +35,33 @@ object WidgetArt {
     private const val MUTED = 0x8C2B1D12.toInt()
     private const val RED = 0xFFC93721.toInt()
 
-    /** Main widget: left to spend today, a "+" button, then today's bar above the month's colour-coded bar. */
-    fun main(ctx: Context, st: AppState, wDp: Float, hDp: Float): Bitmap {
+    /** A canvas with dp helpers, the three fonts and the window frame already drawn. */
+    private class Art(ctx: Context, wDp: Float, hDp: Float) {
         // Cap the scale so a big widget stays well under the launcher's bitmap memory limit.
         val d = minOf(ctx.resources.displayMetrics.density, 1_800_000f / (wDp * hDp).coerceAtLeast(1f)).coerceAtLeast(1f)
-        val w = (wDp * d).toInt().coerceAtLeast(1)
-        val h = (hDp * d).toInt().coerceAtLeast(1)
-        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val bmp: Bitmap = Bitmap.createBitmap((wDp * d).toInt().coerceAtLeast(1), (hDp * d).toInt().coerceAtLeast(1), Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
+        val display: Typeface = ResourcesCompat.getFont(ctx, R.font.press_start) ?: Typeface.MONOSPACE
+        val label: Typeface = ResourcesCompat.getFont(ctx, R.font.silkscreen_bold) ?: Typeface.MONOSPACE
+        val body: Typeface = ResourcesCompat.getFont(ctx, R.font.vt323) ?: Typeface.MONOSPACE
+        private val fill = Paint()
         fun px(v: Float) = v * d
-        val display = ResourcesCompat.getFont(ctx, R.font.press_start) ?: Typeface.MONOSPACE
-        val label = ResourcesCompat.getFont(ctx, R.font.silkscreen_bold) ?: Typeface.MONOSPACE
-        val body = ResourcesCompat.getFont(ctx, R.font.vt323) ?: Typeface.MONOSPACE
-        val fill = Paint()
-        fun rect(l: Float, t: Float, r: Float, b: Float, color: Int) { fill.color = color; c.drawRect(l, t, r, b, fill) }
-        fun text(s: String, x: Float, y: Float, face: Typeface, sizeSp: Float, color: Int, right: Boolean = false) {
-            val p = Paint().apply { typeface = face; textSize = px(sizeSp); this.color = color; isAntiAlias = false; textAlign = if (right) Paint.Align.RIGHT else Paint.Align.LEFT }
-            c.drawText(s, x, y, p)
+        val right = bmp.width - px(SHADOW)
+        val bottom = bmp.height - px(SHADOW)
+        val l = px(FRAME + PAD)
+        val r = right - px(FRAME + PAD)
+
+        init {
+            rect(px(SHADOW), px(SHADOW), bmp.width.toFloat(), bmp.height.toFloat(), BROWN)   // hard shadow
+            rect(0f, 0f, right, bottom, BROWN)
+            rect(px(FRAME), px(FRAME), right - px(FRAME), bottom - px(FRAME), CREAM_LIGHT)
         }
+
+        fun rect(l: Float, t: Float, r: Float, b: Float, color: Int) { fill.color = color; c.drawRect(l, t, r, b, fill) }
+
+        fun text(s: String, x: Float, y: Float, face: Typeface, sizeSp: Float, color: Int, right: Boolean = false) =
+            c.drawText(s, x, y, Paint().apply { typeface = face; textSize = px(sizeSp); this.color = color; isAntiAlias = false; textAlign = if (right) Paint.Align.RIGHT else Paint.Align.LEFT })
+
         fun fitSize(s: String, face: Typeface, startSp: Float, maxWidth: Float): Float {
             var sp = startSp
             val p = Paint().apply { typeface = face }
@@ -58,80 +69,80 @@ object WidgetArt {
             return sp
         }
 
-        // Window frame with hard shadow, like every window in the app.
-        val right = w - px(SHADOW); val bottom = h - px(SHADOW)
-        rect(px(SHADOW), px(SHADOW), w.toFloat(), h.toFloat(), BROWN)
-        rect(0f, 0f, right, bottom, BROWN)
-        rect(px(FRAME), px(FRAME), right - px(FRAME), bottom - px(FRAME), CREAM_LIGHT)
+        /** Orange square button with hard shadow and a 9×9 pixel glyph, like PixelButton. */
+        fun button(b: RectF, glyph: List<String>) {
+            rect(b.left + px(3f), b.top + px(3f), b.right + px(3f), b.bottom + px(3f), BROWN)
+            rect(b.left, b.top, b.right, b.bottom, BROWN)
+            rect(b.left + px(3f), b.top + px(3f), b.right - px(3f), b.bottom - px(3f), ORANGE)
+            val cell = (b.width() * 0.5f / glyph.size).toInt().toFloat().coerceAtLeast(1f)
+            val ox = b.centerX() - cell * glyph.size / 2; val oy = b.centerY() - cell * glyph.size / 2
+            glyph.forEachIndexed { y, row -> row.forEachIndexed { x, ch -> if (ch == '#') rect(ox + x * cell, oy + y * cell, ox + (x + 1) * cell, oy + (y + 1) * cell, CREAM_LIGHT) } }
+        }
 
-        val l = px(FRAME + PAD); val r = right - px(FRAME + PAD); val top = px(FRAME + 8f)
+        /** Segmented block bar with a 2dp outline. */
+        fun blocks(t: Float, b: Float, frac: Float, color: Int) {
+            rect(l, t, r, b, BROWN)
+            rect(l + px(2f), t + px(2f), r - px(2f), b - px(2f), CREAM)
+            val n = 20; val gap = px(2f)
+            val bw = ((r - l) - px(4f) - gap * (n - 1)) / n
+            val filled = (frac * n).let { if (it > 0f && it < 1f) 1 else it.toInt() }
+            for (i in 0 until n) {
+                val x = l + px(2f) + i * (bw + gap)
+                rect(x, t + px(3f), x + bw, b - px(3f), if (i < filled) color else CREAM_LIGHT)
+            }
+        }
+    }
+
+    /** Main widget: what's left to spend today, then a camera button (scan a receipt) and "+" (add an expense). */
+    fun main(ctx: Context, st: AppState, wDp: Float, hDp: Float): Bitmap {
+        val a = Art(ctx, wDp, hDp)
+        val snap = st.snapshot()
+        val cy = a.bottom / 2 + a.px(FRAME) / 2
+        val plus = RectF(a.r - a.px(BUTTON), cy - a.px(BUTTON / 2), a.r, cy + a.px(BUTTON / 2))
+        val cam = RectF(plus.left - a.px(GAP + BUTTON), plus.top, plus.left - a.px(GAP), plus.bottom)
+        a.button(plus, Glyphs.plus)
+        a.button(cam, Glyphs.camera)
+        val left = snap.day.remaining
+        val amount = money(left, st.currency)
+        val sp = a.fitSize(amount, a.display, 22f, cam.left - a.l - a.px(10f))
+        a.text("LEFT TODAY", a.l, cy - a.px(4f) - a.px(sp) / 2, a.label, 10f, BROWN)
+        a.text(amount, a.l, cy + a.px(6f) + a.px(sp) / 2, a.display, sp, if (left < 0) RED else BROWN)
+        return a.bmp
+    }
+
+    /** Bars widget: today's block bar above the month's colour-coded bar, filling the widget's height. */
+    fun bars(ctx: Context, st: AppState, wDp: Float, hDp: Float): Bitmap {
+        val a = Art(ctx, wDp, hDp)
         val snap = st.snapshot()
         val cur = st.currency
-
-        // "+" button, top-right: orange, brown outline, hard shadow.
-        val b = RectF(r - px(BUTTON), top, r, top + px(BUTTON))
-        rect(b.left + px(3f), b.top + px(3f), b.right + px(3f), b.bottom + px(3f), BROWN)
-        rect(b.left, b.top, b.right, b.bottom, BROWN)
-        rect(b.left + px(3f), b.top + px(3f), b.right - px(3f), b.bottom - px(3f), ORANGE)
-        val cx = b.centerX(); val cy = b.centerY(); val arm = px(11f); val thick = px(5f)
-        rect(cx - arm, cy - thick / 2, cx + arm, cy + thick / 2, CREAM_LIGHT)
-        rect(cx - thick / 2, cy - arm, cx + thick / 2, cy + arm, CREAM_LIGHT)
-
-        // Left to spend today: one number.
+        val top = a.px(FRAME + 6f)
+        val section = (a.bottom - a.px(FRAME + 6f) - top) / 2
+        val barH = (section - a.px(20f)).coerceIn(a.px(10f), a.px(30f))
         val left = snap.day.remaining
-        text("LEFT TODAY", l, top + px(10f), label, 10f, BROWN)
-        val amount = money(left, cur)
-        val sp = fitSize(amount, display, 22f, b.left - l - px(8f))
-        text(amount, l, top + px(10f + 6f) + px(sp), display, sp, if (left < 0) RED else BROWN)
 
-        val compact = hDp < 110f
-        if (compact) return bmp
-
-        // The two bars share the space under the number, growing with the widget's height.
-        val area = (bottom - px(FRAME + 8f)) - (top + px(BUTTON + 6f))
-        val section = area / 2
-        val barH = (section - px(26f)).coerceIn(px(12f), px(30f))
-        val dayTop = top + px(BUTTON + 6f) + (section - barH - px(18f)) / 2
-
-        // Today's bar (blocks, like the app's progress bars).
-        var y = dayTop + px(12f)
+        var y = top + (section - barH - a.px(14f)) / 2 + a.px(10f)
         val dayFrac = if (snap.day.budget <= 0) (if (snap.day.spent > 0) 1f else 0f) else (snap.day.spent.toFloat() / snap.day.budget).coerceIn(0f, 1f)
-        text("TODAY", l, y, label, 9f, BROWN)
-        text("${money(snap.day.spent, cur)} / ${money(snap.day.budget, cur)}", r, y, body, 15f, if (left < 0) RED else MUTED, right = true)
-        y += px(4f)
-        drawBlocks(c, fill, l, y, r, y + barH, d, dayFrac, if (left < 0) RED else ORANGE)
-        y = dayTop + section + px(12f)
+        a.text("TODAY", a.l, y, a.label, 9f, BROWN)
+        a.text("${money(snap.day.spent, cur)} / ${money(snap.day.budget, cur)}", a.r, y, a.body, 15f, if (left < 0) RED else MUTED, right = true)
+        y += a.px(4f)
+        a.blocks(y, y + barH, dayFrac, if (left < 0) RED else ORANGE)
 
-        // Month bar: fixed costs and each category in its colour, all red once over budget.
-        text("MONTH", l, y, label, 9f, BROWN)
-        text(if (snap.over) "${money(snap.spent - snap.spendable, cur)} over" else "${money(snap.left, cur)} left", r, y, body, 15f, if (snap.over) RED else MUTED, right = true)
-        y += px(4f)
+        y = top + section + (section - barH - a.px(14f)) / 2 + a.px(10f)
+        a.text("MONTH", a.l, y, a.label, 9f, BROWN)
+        a.text(if (snap.over) "${money(snap.spent - snap.spendable, cur)} over" else "${money(snap.left, cur)} left", a.r, y, a.body, 15f, if (snap.over) RED else MUTED, right = true)
+        y += a.px(4f)
         val barB = y + barH
-        rect(l, y, r, barB, if (snap.over) RED else BROWN)
-        rect(l + px(2f), y + px(2f), r - px(2f), barB - px(2f), CREAM_LIGHT)
+        a.rect(a.l, y, a.r, barB, if (snap.over) RED else BROWN)
+        a.rect(a.l + a.px(2f), y + a.px(2f), a.r - a.px(2f), barB - a.px(2f), CREAM_LIGHT)
         val total = snap.barTotal().toFloat()
-        var x = l + px(2f)
-        val span = (r - l) - px(4f)
+        var x = a.l + a.px(2f)
+        val span = (a.r - a.l) - a.px(4f)
         for (s in st.monthSegments(snap)) {
             if (s.amount <= 0) continue
             val wSeg = span * (s.amount / total)
-            rect(x, y + px(2f), (x + wSeg).coerceAtMost(r - px(2f)), barB - px(2f), if (snap.over) CategoryColors.OVER else s.argb)
+            a.rect(x, y + a.px(2f), (x + wSeg).coerceAtMost(a.r - a.px(2f)), barB - a.px(2f), if (snap.over) CategoryColors.OVER else s.argb)
             x += wSeg
         }
-        return bmp
-    }
-
-    /** Segmented block bar with a 2dp outline. */
-    private fun drawBlocks(c: Canvas, fill: Paint, l: Float, t: Float, r: Float, b: Float, d: Float, frac: Float, color: Int) {
-        fill.color = BROWN; c.drawRect(l, t, r, b, fill)
-        fill.color = CREAM; c.drawRect(l + 2 * d, t + 2 * d, r - 2 * d, b - 2 * d, fill)
-        val n = 20; val gap = 2 * d
-        val bw = ((r - l) - 4 * d - gap * (n - 1)) / n
-        val filled = (frac * n).let { if (it > 0f && it < 1f) 1 else it.toInt() }
-        for (i in 0 until n) {
-            fill.color = if (i < filled) color else CREAM_LIGHT
-            val x = l + 2 * d + i * (bw + gap)
-            c.drawRect(x, t + 2 * d + d, x + bw, b - 2 * d - d, fill)
-        }
+        return a.bmp
     }
 }

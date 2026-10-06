@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="widget_spend">Left to spend today, add an expense, today and this month at a glance</string>
-    <string name="widget_quick">One tap to add an expense or scan</string>
-    <string name="widget_planned">Next planned purchases</string>
+    <string name="widget_spend">Left to spend today, scan a receipt or add an expense</string>
+    <string name="widget_bars">Today and this month as two bars</string>
 </resources>

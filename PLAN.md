@@ -243,7 +243,7 @@ Each ends with a working build. After M9, one Fable audit of the whole app, then
 | Savings | Automatic: a finished month saves everything earned that wasn't spent (unspent budget and never-budgeted money). An overspent month subtracts. Manual savings lines are no longer edited in the app. |
 | Month bar | One colour-coded bar: fixed costs, then each category's spending in its own colour. Tap for amounts and shares. All red, pulsing, when over budget; "Too fast" now only means ahead of an even pace. |
 | Categories | Each is Daily or Monthly (Profile → Categories). Monthly ones (default Groceries, Bills) lower the month's money, and so every remaining day's budget, without counting as spent today. Category caps removed; Home's category window removed. |
-| Widget | Main widget (4×2) drawn in the app's pixel style: left to spend today, a "+" to add an expense, today's bar above the month's colour bar. The separate "today" widget was merged into it. |
+| Widgets | Two widgets, both drawn in the app's pixel style. "Budgeter" (4×1): left to spend today, a camera button (opens the receipt scanner) and "+" (new expense). "Budgeter: bars" (4×1): today's bar above the month's colour bar. Quick add, Planned and Today widgets were removed (v1.2). |
 | UI | Folds start closed and close again when you switch tabs. Transactions' search and filters sit in one fold. AI model is a dropdown loaded from the provider. In-app pixel camera. |
 | Production | Test server removed. The install button installs the release build. |
 

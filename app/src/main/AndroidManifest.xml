@@ -51,13 +51,9 @@
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_spend" />
         </receiver>
-        <receiver android:name=".widget.QuickAddReceiver" android:exported="true" android:label="Budgeter: quick add">
+        <receiver android:name=".widget.BarsReceiver" android:exported="true" android:label="Budgeter: bars">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
-            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_quick" />
-        </receiver>
-        <receiver android:name=".widget.PlannedReceiver" android:exported="true" android:label="Budgeter: planned">
-            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
-            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_planned" />
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_bars" />
         </receiver>
     </application>
 </manifest>
