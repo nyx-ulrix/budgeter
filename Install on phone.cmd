@@ -15,6 +15,11 @@ echo.
 echo  BUDGETER ^| building...
 echo.
 call "%~dp0gradlew.bat" :app:assembleRelease -q
+rem Windows sometimes locks fresh build files for a moment (antivirus); one retry gets past it.
+if errorlevel 1 (
+  echo  Build hiccup, retrying once...
+  call "%~dp0gradlew.bat" :app:assembleRelease -q
+)
 if errorlevel 1 goto fail
 set "APK=%~dp0app\build\outputs\apk\release\app-release.apk"
 
