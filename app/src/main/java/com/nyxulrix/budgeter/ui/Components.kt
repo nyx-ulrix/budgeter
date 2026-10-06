@@ -191,7 +191,7 @@ fun PixelField(
     error: String? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(modifier.semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         if (label.isNotEmpty()) Label(label)
         BasicTextField(
             value, onChange,
@@ -205,7 +205,7 @@ fun PixelField(
                 .frame(border = if (error != null) Px.red else if (focused) Px.orange else Px.brown)
                 .heightIn(min = 44.dp)
                 .padding(horizontal = 8.dp, vertical = 10.dp)
-                .semantics { contentDescription = label.ifEmpty { placeholder } },
+                .semantics { if (label.isEmpty()) contentDescription = placeholder },
             decorationBox = { inner ->
                 Box {
                     if (value.isEmpty()) Text(placeholder, style = Type.body, color = Px.muted)

@@ -14,6 +14,9 @@ import androidx.glance.ImageProvider
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
+import androidx.glance.appwidget.SizeMode
+import androidx.glance.LocalSize
+import androidx.compose.ui.unit.DpSize
 import androidx.glance.appwidget.LinearProgressIndicator
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.provideContent
@@ -86,14 +89,36 @@ private fun Frame(title: String, action: androidx.glance.action.Action, content:
     }
 }
 
+/** Sizes each widget is drawn for. TINY suits flip-phone cover screens and 1×1 cells. */
+private val TINY = DpSize(90.dp, 40.dp)
+private val MEDIUM = DpSize(180.dp, 70.dp)
+private val LARGE = DpSize(250.dp, 110.dp)
+private val SIZES = SizeMode.Responsive(setOf(TINY, MEDIUM, LARGE))
+
+@Composable
+private fun tiny() = LocalSize.current.width < 150.dp || LocalSize.current.height < 60.dp
+
+/** Cover-screen layout: no title bar, one big line and one small line. */
+@Composable
+private fun Tiny(big: String, small: String, color: ColorProvider, action: androidx.glance.action.Action) {
+    Box(GlanceModifier.fillMaxSize().background(brown).padding(2.dp).clickable(action)) {
+        Column(GlanceModifier.fillMaxSize().background(cream).padding(4.dp), verticalAlignment = Alignment.CenterVertically, horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(big, style = t(15, color, true), maxLines = 1)
+            Text(small.uppercase(), style = t(9), maxLines = 1)
+        }
+    }
+}
+
 private fun paceColor(p: Pace) = when (p) { Pace.ON_TRACK -> green; Pace.SLIGHTLY_OVER -> orange; Pace.OVER -> red }
 
 class SpendWidget : GlanceAppWidget() {
+    override val sizeMode = SIZES
     override suspend fun provideGlance(context: Context, id: GlanceId) = provideContent {
         val st = App.store.value
         val s = st.snapshot()
         val cur = st.currency
-        Frame("This month", open(context, "home")) {
+        if (tiny()) Tiny("${(s.fraction * 100).toInt()}%", "of month · ${s.pace.label}", paceColor(s.pace), open(context, "home"))
+        else Frame("This month", open(context, "home")) {
             Text("${money(s.spent, cur)} / ${money(s.spendable, cur)}", style = t(13, bold = true))
             Spacer(GlanceModifier.height(4.dp))
             LinearProgressIndicator(s.fraction, GlanceModifier.fillMaxWidth().height(10.dp), color = paceColor(s.pace), backgroundColor = ColorProvider(Color(0xFFE7D6AD)))
@@ -104,11 +129,13 @@ class SpendWidget : GlanceAppWidget() {
 }
 
 class DailyWidget : GlanceAppWidget() {
+    override val sizeMode = SIZES
     override suspend fun provideGlance(context: Context, id: GlanceId) = provideContent {
         val st = App.store.value
         val d = st.snapshot().day
         val cur = st.currency
-        Frame("Today", open(context, "home")) {
+        if (tiny()) Tiny(money(d.remaining, cur), "left today", if (d.remaining < 0) red else brown, open(context, "home"))
+        else Frame("Today", open(context, "home")) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Image(ImageProvider(R.drawable.mascot_idle), "Mascot", GlanceModifier.size(32.dp))
                 Spacer(GlanceModifier.width(8.dp))
@@ -122,8 +149,14 @@ class DailyWidget : GlanceAppWidget() {
 }
 
 class QuickAddWidget : GlanceAppWidget() {
+    override val sizeMode = SIZES
     override suspend fun provideGlance(context: Context, id: GlanceId) = provideContent {
-        Box(GlanceModifier.fillMaxSize().background(brown).padding(3.dp)) {
+        if (tiny()) Box(GlanceModifier.fillMaxSize().background(brown).padding(2.dp)) {
+            Box(GlanceModifier.fillMaxSize().background(orange).clickable(open(context, "add")), contentAlignment = Alignment.Center) {
+                Text("+ ADD", style = t(14, cream, true))
+            }
+        }
+        else Box(GlanceModifier.fillMaxSize().background(brown).padding(3.dp)) {
             Row(GlanceModifier.fillMaxSize().background(cream)) {
                 Box(GlanceModifier.defaultWeight().fillMaxSize().background(orange).clickable(open(context, "add")), contentAlignment = Alignment.Center) {
                     Text("+ EXPENSE", style = t(13, cream, true))
@@ -138,11 +171,15 @@ class QuickAddWidget : GlanceAppWidget() {
 }
 
 class PlannedWidget : GlanceAppWidget() {
+    override val sizeMode = SIZES
     override suspend fun provideGlance(context: Context, id: GlanceId) = provideContent {
         val st = App.store.value
         val cur = st.currency
-        val top = st.planned.filter { it.status == PlannedStatus.OPEN }.sortedWith(compareBy({ it.priority }, { it.targetMonth })).take(2)
-        Frame("Planned", open(context, "planned")) {
+        val top = st.planned.filter { it.status == PlannedStatus.OPEN }.sortedWith(compareBy({ it.priority }, { it.targetMonth })).take(if (tiny()) 1 else 2)
+        if (tiny()) top.firstOrNull().let { p ->
+            Tiny(p?.let { "${if (it.price > 0) st.reserved(it.id) * 100 / it.price else 100}%" } ?: "-", p?.name ?: "nothing planned", blue, open(context, "planned"))
+        }
+        else Frame("Planned", open(context, "planned")) {
             if (top.isEmpty()) Text("Nothing planned", style = t(12))
             top.forEach { p ->
                 Text(p.name, style = t(12, bold = true))

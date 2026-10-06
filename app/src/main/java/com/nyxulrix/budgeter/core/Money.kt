@@ -16,7 +16,9 @@ fun plain(minor: Long, currency: String): String =
 /** Minor units → "S$12.50" / "-¥300". */
 fun money(minor: Long, currency: String): String {
     val sym = runCatching { Currency.getInstance(currency).symbol }.getOrDefault(currency)
-    return (if (minor < 0) "-" else "") + sym + plain(kotlin.math.abs(minor), currency)
+    val d = digits(currency)
+    val fmt = java.text.DecimalFormat(if (d == 0) "#,##0" else "#,##0." + "0".repeat(d), java.text.DecimalFormatSymbols(java.util.Locale.US))
+    return (if (minor < 0) "-" else "") + sym + fmt.format(BigDecimal.valueOf(kotlin.math.abs(minor)).movePointLeft(d))
 }
 
 /** User text → minor units. Accepts "12", "12.5", "1,234.50", "12,50". Null if not a number. */

@@ -3,8 +3,9 @@
     android:minWidth="180dp" android:minHeight="70dp"
     android:targetCellWidth="3" android:targetCellHeight="1"
     android:resizeMode="horizontal|vertical"
+    android:minResizeWidth="40dp" android:minResizeHeight="40dp"
     android:updatePeriodMillis="0"
     android:initialLayout="@layout/glance_default_loading_layout"
     android:previewImage="@drawable/ic_launcher_fg"
     android:description="@string/widget_daily"
-    android:widgetCategory="home_screen" />
+    android:widgetCategory="home_screen|keyguard" />

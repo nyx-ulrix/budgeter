@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -127,10 +128,11 @@ fun GroupDialog(st: AppState, existing: Group?, onDismiss: () -> Unit) {
 @Composable
 fun GroupScreen(st: AppState, id: String) {
     val nav = LocalNav.current
-    val g = st.groups.firstOrNull { it.id == id } ?: run { nav.back(); return }
+    val g = st.groups.firstOrNull { it.id == id } ?: run { LaunchedEffect(id) { nav.back() }; return }
     val cur = st.currency
     val net = st.groupNet(id)
     var editing by remember { mutableStateOf(false) }
+    var paying by remember { mutableStateOf<com.nyxulrix.budgeter.core.Transfer?>(null) }
     Page {
         PageHeader(g.name)
         Window("Balances") {
@@ -145,21 +147,31 @@ fun GroupScreen(st: AppState, id: String) {
             transfers.forEach { t ->
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Body("${st.personName(t.from)} → ${st.personName(t.to)}: ${money(t.amount, cur)}", Modifier.weight(1f))
-                    PixelButton("Paid", { App.store.settleUp(id, t.from, t.to, t.amount) }, kind = Kind.SECONDARY)
+                    PixelButton("Paid", { paying = t }, kind = Kind.SECONDARY)
                 }
             }
-            if (transfers.isNotEmpty()) Small("\"Paid\" records the payment. Partial payments: edit the amount by recording a split expense instead.")
+            if (transfers.isNotEmpty()) Small("Tap Paid to log a payment. You can log part of it.")
         }
         Window("Expenses") {
             val list = st.liveTxns.filter { it.groupId == id }.sortedByDescending { it.date }
             if (list.isEmpty()) Small("No shared expenses yet.")
             list.forEach { TxnRow(st, it) }
-            PixelButton("+ Shared expense", { nav.go(Screen.Expense(groupId = id)) }, glyph = Glyphs.plus)
+            PixelButton("Shared expense", { nav.go(Screen.Expense(groupId = id)) }, glyph = Glyphs.plus)
         }
         PixelButton("Edit group", { editing = true }, Modifier.fillMaxWidth(), kind = Kind.SECONDARY)
         PixelButton("Delete group", { App.store.deleteGroup(id); nav.back() }, Modifier.fillMaxWidth(), kind = Kind.DANGER)
     }
     if (editing) GroupDialog(st, g) { editing = false }
+    paying?.let { t ->
+        var amount by remember(t) { mutableStateOf(com.nyxulrix.budgeter.core.plain(t.amount, cur)) }
+        val v = parseMoney(amount, cur)
+        PixelDialog("Log payment", { paying = null }) {
+            Body("${st.personName(t.from)} pays ${st.personName(t.to)}")
+            PixelField(amount, { amount = it }, "Amount ($cur)", keyboard = KeyboardType.Decimal)
+            PixelButton("Log it", { App.store.settleUp(id, t.from, t.to, v!!); paying = null }, Modifier.fillMaxWidth(),
+                enabled = v != null && v > 0 && v <= t.amount)
+        }
+    }
 }
 
 /** Create or edit a trip. A new trip's fund is set aside from this month. */
@@ -201,7 +213,7 @@ fun TripDialog(st: AppState, existing: Trip?, onDismiss: () -> Unit) {
 @Composable
 fun TripScreen(st: AppState, id: String) {
     val nav = LocalNav.current
-    val t = st.trips.firstOrNull { it.id == id } ?: run { nav.back(); return }
+    val t = st.trips.firstOrNull { it.id == id } ?: run { LaunchedEffect(id) { nav.back() }; return }
     val cur = st.currency
     val fund = st.tripFund(id)
     val spent = st.tripSpent(id)
@@ -240,7 +252,7 @@ fun TripScreen(st: AppState, id: String) {
             val list = st.liveTxns.filter { it.tripId == id }.sortedByDescending { it.date }
             if (list.isEmpty()) Small("No trip spending yet.")
             list.forEach { TxnRow(st, it) }
-            PixelButton("+ Trip expense", { nav.go(Screen.Expense(tripId = id)) }, glyph = Glyphs.plus)
+            PixelButton("Trip expense", { nav.go(Screen.Expense(tripId = id)) }, glyph = Glyphs.plus)
         }
         t.groupId?.let { gid -> PixelButton("Group balances", { nav.go(Screen.GroupView(gid)) }, Modifier.fillMaxWidth(), kind = Kind.SECONDARY) }
         PixelButton("Edit trip", { editing = true }, Modifier.fillMaxWidth(), kind = Kind.SECONDARY)

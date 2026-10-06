@@ -382,7 +382,9 @@ fun ScanningOverlay(status: String) {
 /** Indeterminate loading bar that moves in hard steps. */
 @Composable
 fun SteppedBar() {
-    var step by remember { mutableStateOf(0) }
-    LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(160); step = (step + 1) % 21 } }
+    val ctx = LocalContext.current
+    val still = android.provider.Settings.Global.getFloat(ctx.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+    var step by remember { mutableStateOf(if (still) 10 else 0) }
+    LaunchedEffect(still) { while (!still) { kotlinx.coroutines.delay(160); step = (step + 1) % 21 } }
     PixelProgress(step / 20f, blocks = 20)
 }

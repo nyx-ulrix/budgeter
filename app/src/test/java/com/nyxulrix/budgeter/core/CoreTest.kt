@@ -26,6 +26,8 @@ class CoreTest {
         assertEquals(1234L, parseMoney("1.234", "KWD"))
         assertNull(parseMoney("abc", "SGD"))
         assertEquals("12.50", plain(1250, "SGD"))
+        assertTrue(money(123_456_78, "SGD").endsWith("123,456.78"))
+        assertTrue(money(-500, "JPY").startsWith("-") && money(-500, "JPY").endsWith("500"))
         assertEquals(9_000L, convert(10_000, "JPY", "SGD", 0.009))
     }
 

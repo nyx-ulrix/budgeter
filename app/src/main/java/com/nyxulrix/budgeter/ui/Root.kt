@@ -88,8 +88,13 @@ fun Root(nav: Nav) {
         }
         val scanner = rememberScanner(st) { receipt, text -> nav.go(Screen.Expense(receipt = receipt, ocrText = text)) }
         LaunchedEffect(nav.pendingScan) { if (nav.pendingScan) { nav.pendingScan = false; scanner.camera() } }
+        val compact = isCompact()
+        val top = nav.stack.lastOrNull()
+        val plainAdd = top is Screen.Expense && top.id == null && top.receipt == null && top.groupId == null && top.tripId == null
         CompositionLocalProvider(LocalNav provides nav, LocalScanner provides scanner) {
-            Column(Modifier.fillMaxSize()) {
+            // Flip-phone cover screen: concise view only; scanned receipts still open the full editor.
+            if (compact && (top == null || plainAdd)) CompactScreen(st, adding = plainAdd) { if (plainAdd) nav.back() }
+            else Column(Modifier.fillMaxSize()) {
                 Toolbar(st)
                 Box(Modifier.weight(1f)) {
                     when (val top = nav.stack.lastOrNull()) {
