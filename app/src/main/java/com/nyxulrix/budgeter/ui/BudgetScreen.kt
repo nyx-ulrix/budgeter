@@ -168,9 +168,9 @@ private fun BudgetWindow(st: AppState, key: String, plan: Plan, cur: String) {
 private fun IncomeWindow(key: String, plan: Plan, cur: String) {
     var text by remember(key, plan.income) { mutableStateOf(plain(plan.income, cur)) }
     val v = parseMoney(text, cur)
-    FoldWindow("Income") {
+    FoldWindow("Money in") {
         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PixelField(text, { text = it }, "Monthly income / allowance", Modifier.weight(1f), keyboard = KeyboardType.Decimal,
+            PixelField(text, { text = it }, "Money in each month (pay, allowance)", Modifier.weight(1f), keyboard = KeyboardType.Decimal,
                 error = if (v == null) "Not a number" else null)
             PixelButton("Set", { App.store.editPlan(key) { it.copy(income = v!!) } }, enabled = v != null && v != plan.income)
         }

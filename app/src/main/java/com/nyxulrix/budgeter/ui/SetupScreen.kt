@@ -81,7 +81,7 @@ fun SetupScreen(existing: Setup?) {
                 keyboard = KeyboardType.Number, error = if (dayOk) null else "Pick a day from 1 to 28")
             Small("Use your payday if you're paid mid-month.")
             if (first) {
-                PixelField(income, { income = it }, "Monthly income or allowance ($currency)", keyboard = KeyboardType.Decimal,
+                PixelField(income, { income = it }, "Money in each month: pay, allowance ($currency)", keyboard = KeyboardType.Decimal,
                     placeholder = "0.00", error = if (incomeMinor == null) "Not a number" else null)
                 PixelField(balance, { balance = it }, "Money you have now (optional)", keyboard = KeyboardType.Decimal,
                     placeholder = "0.00", error = if (balanceMinor == null) "Not a number" else null)
