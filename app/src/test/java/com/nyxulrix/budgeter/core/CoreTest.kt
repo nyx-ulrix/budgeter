@@ -1,0 +1,147 @@
+package com.nyxulrix.budgeter.core
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.time.LocalDate
+
+class CoreTest {
+    @Test fun allocateSumsExactly() {
+        assertEquals(listOf(34L, 33L, 33L), allocate(100, listOf(1, 1, 1)))
+        assertEquals(listOf(-34L, -33L, -33L), allocate(-100, listOf(1, 1, 1)))
+        assertEquals(listOf(0L, 0L), allocate(0, listOf(5, 5)))
+        assertEquals(listOf(5L, 5L), allocate(10, listOf(0, 0)))
+        val parts = allocate(1001, listOf(333, 333, 334))
+        assertEquals(1001L, parts.sum())
+    }
+
+    @Test fun parsesMoney() {
+        assertEquals(1250L, parseMoney("12.50", "SGD"))
+        assertEquals(1250L, parseMoney("12,50", "EUR"))
+        assertEquals(123450L, parseMoney("1,234.50", "SGD"))
+        assertEquals(123400L, parseMoney("1,234", "SGD"))
+        assertEquals(1200L, parseMoney("S$12", "SGD"))
+        assertEquals(300L, parseMoney("300", "JPY"))
+        assertEquals(1234L, parseMoney("1.234", "KWD"))
+        assertNull(parseMoney("abc", "SGD"))
+        assertEquals("12.50", plain(1250, "SGD"))
+        assertEquals(9_000L, convert(10_000, "JPY", "SGD", 0.009))
+    }
+
+    @Test fun periodsWithCustomStartDay() {
+        val p = periodOf(LocalDate.of(2026, 10, 3), 25)
+        assertEquals(LocalDate.of(2026, 9, 25), p.start)
+        assertEquals(LocalDate.of(2026, 10, 25), p.end)
+        assertEquals("2026-09", p.key)
+        assertEquals(30, p.days)
+        assertEquals(p, Period.ofKey("2026-09", 25))
+        assertEquals("2026-10", p.next().key)
+        assertEquals(LocalDate.of(2026, 1, 1), periodOf(LocalDate.of(2026, 1, 31), 1).start)
+    }
+
+    @Test fun dailyBudgetAdjustsAfterOverspend() {
+        val p = periodOf(LocalDate.of(2026, 10, 1), 1)            // 31 days
+        val d1 = today(31_000, 0, 5_000, LocalDate.of(2026, 10, 1), p)
+        assertEquals(1_000L, d1.budget)
+        assertEquals(-4_000L, d1.remaining)
+        val d2 = today(31_000, 5_000, 0, LocalDate.of(2026, 10, 2), p)  // 30 days left
+        assertEquals(866L, d2.budget)
+        val broke = today(1_000, 5_000, 100, LocalDate.of(2026, 10, 2), p)
+        assertEquals(0L, broke.budget)
+        val last = today(31_000, 30_000, 0, LocalDate.of(2026, 10, 31), p)
+        assertEquals(1_000L, last.budget)
+    }
+
+    @Test fun pacing() {
+        val p = periodOf(LocalDate.of(2026, 10, 1), 1)
+        val day10 = LocalDate.of(2026, 10, 10)                    // expected 31000*10/31 = 10000
+        assertEquals(Pace.ON_TRACK, pace(31_000, 10_000, day10, p))
+        assertEquals(Pace.SLIGHTLY_OVER, pace(31_000, 11_000, day10, p))
+        assertEquals(Pace.OVER, pace(31_000, 11_001, day10, p))
+        assertEquals(Pace.ON_TRACK, pace(31_000, 0, LocalDate.of(2026, 10, 1), p))
+        assertEquals(Pace.OVER, pace(-500, 1, day10, p))
+    }
+
+    @Test fun splits() {
+        assertEquals(listOf(3334L, 3333L, 3333L), split(10_000, SplitMethod.EQUAL, listOf(0, 0, 0)))
+        assertEquals(listOf(7_500L, 2_500L), split(10_000, SplitMethod.PERCENT, listOf(7_500, 2_500)))
+        assertEquals(listOf(2_000L, 8_000L), split(10_000, SplitMethod.SHARES, listOf(1, 4)))
+        assertEquals(listOf(1L, 9_999L), split(10_000, SplitMethod.EXACT, listOf(1, 9_999)))
+        assertTrue(runCatching { split(10_000, SplitMethod.PERCENT, listOf(5_000, 4_000)) }.isFailure)
+        assertTrue(runCatching { split(10_000, SplitMethod.EXACT, listOf(1, 2)) }.isFailure)
+        // item 0 shared by everyone, item 1 only person 1
+        assertEquals(listOf(500L, 1_500L), itemShares(listOf(1_000, 1_000), listOf(emptySet(), setOf(1)), 2))
+    }
+
+    @Test fun settlesDebts() {
+        val t = settle(mapOf("me" to 7_500, "a" to -2_500, "b" to -2_500, "c" to -2_500))
+        assertEquals(3, t.size)
+        assertTrue(t.all { it.to == "me" && it.amount == 2_500L })
+        assertTrue(settle(mapOf("me" to 0, "a" to 0)).isEmpty())
+    }
+
+    @Test fun receiptAllocationUsesOnlyPrintedCharges() {
+        // Singapore restaurant: 10% service charge then 9% GST, both printed.
+        val r = ParsedReceipt(
+            items = listOf(ReceiptItem("Laksa", 1_000), ReceiptItem("Kopi", 300), ReceiptItem("Kaya toast", 450)),
+            subtotal = 1_750, serviceCharge = 175, tax = 173, total = 2_098,
+        )
+        assertEquals(0L, r.mismatch)
+        val costs = r.itemCosts()
+        assertEquals(2_098L, costs.sum())
+        assertEquals(1_199L, costs[0])
+        // Prices already include GST: tax line is informational, nothing added.
+        val incl = ParsedReceipt(items = listOf(ReceiptItem("A", 1_090)), tax = 90, taxIncluded = true, total = 1_090)
+        assertEquals(listOf(1_090L), incl.itemCosts())
+        assertEquals(0L, incl.mismatch)
+        // Bill-level discount spreads proportionally.
+        val disc = ParsedReceipt(items = listOf(ReceiptItem("A", 1_000), ReceiptItem("B", 3_000)), discount = 400, total = 3_600)
+        assertEquals(listOf(900L, 2_700L), disc.itemCosts())
+        // Nothing printed, nothing added.
+        assertEquals(listOf(500L), ParsedReceipt(items = listOf(ReceiptItem("X", 500))).itemCosts())
+        // Wrong total is flagged, not guessed.
+        assertEquals(100L, ParsedReceipt(items = listOf(ReceiptItem("X", 500)), total = 600).mismatch)
+    }
+
+    @Test fun parsesReceiptText() {
+        val text = """
+            BREAD & BUTTER CAFE
+            12 Orchard Road #01-02
+            Date: 06/10/2026 13:45
+            2 x Kopi              6.00
+            Laksa                12.50
+            Iced Lemon Tea
+            4.50
+            Member Disc          -1.00
+            Subtotal             22.00
+            Svc Chg 10%           2.20
+            GST 9%                2.18
+            TOTAL               26.38
+            VISA                26.38
+            Change                0.00
+        """.trimIndent()
+        val r = ReceiptText.parse(text, "SGD")
+        assertEquals("BREAD & BUTTER CAFE", r.merchant)
+        assertEquals("2026-10-06", r.date)
+        assertEquals(listOf("Kopi", "Laksa", "Iced Lemon Tea", "Member Disc"), r.items.map { it.name })
+        assertEquals(2, r.items[0].qty)
+        assertEquals(-100L, r.items[3].price)
+        assertEquals(2_200L, r.subtotal)
+        assertEquals(220L, r.serviceCharge)
+        assertEquals(218L, r.tax)
+        assertEquals(2_638L, r.total)
+        assertEquals(0L, r.mismatch)
+
+        val inclusive = ReceiptText.parse("SHOP\nApple 3.27\nTotal 3.27\nGST incl. 0.27", "SGD")
+        assertTrue(inclusive.taxIncluded)
+        assertEquals(0L, inclusive.mismatch)
+    }
+
+    @Test fun findsDates() {
+        assertEquals("2026-10-06", ReceiptText.findDate("2026-10-06 10:00"))
+        assertEquals("2026-10-06", ReceiptText.findDate("6 Oct 2026"))
+        assertEquals("2026-12-31", ReceiptText.findDate("12/31/26"))   // impossible day-first, read month-first
+        assertNull(ReceiptText.findDate("Table 12"))
+    }
+}
