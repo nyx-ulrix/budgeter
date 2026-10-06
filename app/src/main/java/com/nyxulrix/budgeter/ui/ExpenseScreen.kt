@@ -97,7 +97,7 @@ class Draft(home: String) {
         itemised = r.items.isNotEmpty()
         discount = p(r.discount); service = p(r.serviceCharge); tax = p(r.tax); taxIncluded = r.taxIncluded
         printedTotal = r.total?.let { plain(it, paidCur) } ?: ""
-        if (!itemised) amount = r.total?.let { plain(it - r.serviceCharge - (if (r.taxIncluded) 0 else r.tax), paidCur) } ?: ""
+        if (!itemised) amount = r.total?.let { plain(it, paidCur) } ?: ""
     }
 }
 
@@ -112,7 +112,7 @@ private fun draftFrom(st: AppState, s: Screen.Expense): Draft {
             val paid = t.foreign?.amount ?: t.total
             d.paidCur = cur; d.rate = (t.foreign?.rate ?: 1.0).toString()
             d.itemised = t.items.isNotEmpty()
-            d.amount = plain(paid - t.serviceCharge - (if (t.taxIncluded) 0 else t.tax), cur)
+            d.amount = plain(if (t.items.isEmpty()) paid else paid - t.serviceCharge - (if (t.taxIncluded) 0 else t.tax), cur)
             d.tax = if (t.tax != 0L) plain(t.tax, cur) else ""
             d.service = if (t.serviceCharge != 0L) plain(t.serviceCharge, cur) else ""
             d.discount = if (t.discount != 0L) plain(t.discount, cur) else ""
@@ -148,7 +148,6 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
     val home = st.currency
     val d = remember(s) { draftFrom(st, s) }
     val existing = s.id?.let { id -> st.txns.firstOrNull { it.id == id } }
-    var pickCur by remember { mutableStateOf(false) }
     var catFor by remember { mutableStateOf<ItemDraft?>(null) }
     var rereading by remember { mutableStateOf(false) }
     val cur = d.paidCur
@@ -178,7 +177,7 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
     }
     val amountV = m(d.amount)
     if (!d.itemised && (amountV == null || d.amount.isBlank())) errors += "Enter an amount"
-    val totalPaid = receipt?.computedTotal ?: ((amountV ?: 0) + (svcV ?: 0) + (if (d.taxIncluded) 0 else taxV ?: 0))
+    val totalPaid = receipt?.computedTotal ?: (amountV ?: 0)
     if (totalPaid <= 0) errors += "The total must be more than zero"
     val rate = if (cur == home) 1.0 else d.rate.toDoubleOrNull()?.takeIf { it > 0 }
     if (rate == null) errors += "Enter the exchange rate"
@@ -213,7 +212,7 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
             category = d.category,
             merchant = d.merchant.trim(),
             note = d.note.trim(),
-            tax = taxV ?: 0, serviceCharge = svcV ?: 0, discount = if (d.itemised) discV ?: 0 else 0,
+            tax = if (d.itemised) taxV ?: 0 else 0, serviceCharge = if (d.itemised) svcV ?: 0 else 0, discount = if (d.itemised) discV ?: 0 else 0,
             taxIncluded = d.taxIncluded,
             payer = if (splitting && d.payer in members) d.payer else ME,
             method = d.method,
@@ -252,12 +251,6 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
             })
             if (!d.itemised) {
                 PixelField(d.amount, { d.amount = it }, "Amount ($cur)", keyboard = KeyboardType.Decimal, placeholder = "0.00")
-                FoldWindow("Tax & service charge", open = d.tax.isNotBlank() || d.service.isNotBlank()) {
-                    Small("Only what's printed. Leave blank if already in the amount.")
-                    PixelField(d.service, { d.service = it }, "Service charge", keyboard = KeyboardType.Decimal)
-                    PixelField(d.tax, { d.tax = it }, "Tax / GST", keyboard = KeyboardType.Decimal)
-                    Choice(listOf(false, true), d.taxIncluded, { if (it) "Tax already in amount" else "Tax on top" }, { d.taxIncluded = it })
-                }
             } else {
                 d.items.forEachIndexed { i, item ->
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -292,14 +285,12 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
         }
 
         Window("Details") {
-            PixelField(d.merchant, { d.merchant = it }, "Merchant")
+            PixelField(d.merchant, { d.merchant = it }, "Name", placeholder = "What was it?")
             DateField("Date", d.date, { d.date = it })
             Label("Category")
             Choice(st.categories, d.category, { it }, { d.category = it })
             PixelField(d.note, { d.note = it }, "Note", singleLine = false)
-            Label("Paid in")
-            PickerBox(cur) { pickCur = true }
-            if (cur != home) PixelField(d.rate, { d.rate = it }, "1 $cur = ? $home", keyboard = KeyboardType.Decimal)
+            if (cur != home) PixelField(d.rate, { d.rate = it }, "Paid in $cur · 1 $cur = ? $home", keyboard = KeyboardType.Decimal)
         }
 
         if (st.trips.isNotEmpty()) Window("Count toward") {
@@ -373,7 +364,6 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
         if (existing != null) PixelButton("Delete", { App.store.deleteTxn(existing.id); nav.back() }, Modifier.fillMaxWidth(), kind = Kind.DANGER)
     }
 
-    if (pickCur) SearchPicker("Paid in", currencyCodes.map { it to it }, { pickCur = false }) { d.paidCur = it; pickCur = false }
     catFor?.let { item ->
         SearchPicker("Item category", st.categories.map { it to it }, { catFor = null }) { item.category = it; catFor = null }
     }

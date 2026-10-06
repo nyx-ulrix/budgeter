@@ -53,6 +53,12 @@ class CoreTest {
         assertEquals(0L, broke.budget)
         val last = today(31_000, 30_000, 0, LocalDate.of(2026, 10, 31), p)
         assertEquals(1_000L, last.budget)
+        // Underspending carries forward as a bonus: 2 days × 1000 base − 500 spent = 1500 saved up.
+        val saver = today(31_000, 500, 0, LocalDate.of(2026, 10, 3), p)
+        assertEquals(1_000L, saver.budget)
+        assertEquals(1_500L, saver.bonus)
+        assertEquals(2_500L, saver.remaining)
+        assertEquals(0L, today(31_000, 500, 0, LocalDate.of(2026, 10, 1), p).bonus)   // nothing before day 1
     }
 
     @Test fun pacing() {

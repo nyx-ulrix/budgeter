@@ -100,6 +100,7 @@ data class Txn(
     val method: SplitMethod = SplitMethod.EQUAL,
     val people: Int = 1,                               // split between P1 (me) .. P[people]
     val shares: Map<String, Long> = emptyMap(),        // P id → share in home minor units; empty = all mine
+    val paidBack: Set<String> = emptySet(),            // P ids who have settled their share with the payer
     val splitInput: Map<String, Long> = emptyMap(),    // what the user typed per person (percent bp, weights, amounts)
     val items: List<TxnItem> = emptyList(),
     val tripId: String? = null,
@@ -112,6 +113,9 @@ data class Txn(
     val deleted: Boolean = false,                      // kept until the delete reaches Sheets
 ) {
     val myShare: Long get() = if (shares.isEmpty()) total else shares[ME] ?: 0
+    val isSplit: Boolean get() = people > 1 || shares.size > 1
+    /** People who owe the payer for this bill: everyone with a share except the payer. */
+    val debtors: List<String> get() = shares.filter { (who, amt) -> who != payer && amt > 0 }.keys.sortedBy { if (it == ME) 1 else it.drop(1).toIntOrNull() ?: 99 }
     /** What this transaction takes from my budget. */
     val budgetImpact: Long get() = (myShare - fromReserve).coerceAtLeast(0)
 }

@@ -123,9 +123,10 @@ object WidgetArt {
         val left = snap.day.remaining
 
         var y = top + (section - barH - a.px(14f)) / 2 + a.px(10f)
-        val dayFrac = if (snap.day.budget <= 0) (if (snap.day.spent > 0) 1f else 0f) else (snap.day.spent.toFloat() / snap.day.budget).coerceIn(0f, 1f)
+        val avail = snap.day.available
+        val dayFrac = if (avail <= 0) (if (snap.day.spent > 0) 1f else 0f) else (snap.day.spent.toFloat() / avail).coerceIn(0f, 1f)
         a.text("TODAY", a.l, y, a.label, 9f, BROWN)
-        a.text("${money(snap.day.spent, cur)} / ${money(snap.day.budget, cur)}", a.r, y, a.body, 15f, if (left < 0) RED else MUTED, right = true)
+        a.text("${money(snap.day.spent, cur)} / ${money(avail, cur)}", a.r, y, a.body, 15f, if (left < 0) RED else MUTED, right = true)
         y += a.px(4f)
         a.blocks(y, y + barH, dayFrac, if (left < 0) RED else ORANGE)
 

@@ -122,6 +122,13 @@ fun Store.deleteTrip(id: String) = update { st ->
     )
 }
 
+/** Ticks or unticks that [who] has paid their share of a split bill. */
+fun Store.togglePaidBack(txnId: String, who: String) = update { st ->
+    st.copy(txns = st.txns.map { t ->
+        if (t.id != txnId) t else t.copy(paidBack = if (who in t.paidBack) t.paidBack - who else t.paidBack + who, updatedAt = System.currentTimeMillis())
+    })
+}
+
 fun Store.setCategories(list: List<String>) = update { it.copy(categories = list) }
 
 /** Daily categories use up the day's budget; monthly ones only lower the month (and so the days left). */

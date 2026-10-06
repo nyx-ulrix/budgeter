@@ -22,6 +22,10 @@ import com.nyxulrix.budgeter.core.Period
 import com.nyxulrix.budgeter.core.money
 import com.nyxulrix.budgeter.data.AppState
 import com.nyxulrix.budgeter.data.Txn
+import com.nyxulrix.budgeter.data.ME
+import com.nyxulrix.budgeter.data.personLabel
+import com.nyxulrix.budgeter.data.togglePaidBack
+import com.nyxulrix.budgeter.App
 import com.nyxulrix.budgeter.data.currency
 import com.nyxulrix.budgeter.data.liveTxns
 import com.nyxulrix.budgeter.data.periodOf
@@ -63,7 +67,7 @@ fun TxnsScreen(st: AppState) {
             var lastDate = ""
             list.forEach { t ->
                 if (t.date != lastDate) { lastDate = t.date; Label(LocalDate.parse(t.date).let { "${it.dayOfWeek.name.take(3)} $it" }) }
-                TxnRow(st, t)
+                TxnRow(st, t, trackPaid = true)
             }
             if (list.isNotEmpty()) {
                 Rule()
@@ -75,9 +79,10 @@ fun TxnsScreen(st: AppState) {
 
 /** One transaction: what, category, my share. Tap to edit. */
 @Composable
-fun TxnRow(st: AppState, t: Txn) {
+fun TxnRow(st: AppState, t: Txn, trackPaid: Boolean = false) {
     val nav = LocalNav.current
     val cur = st.currency
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
     Row(
         Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(role = Role.Button, onClickLabel = "Edit") { nav.go(Screen.Expense(t.id)) }.padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -89,13 +94,22 @@ fun TxnRow(st: AppState, t: Txn) {
             Body(t.merchant.ifBlank { t.category })
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Chip(t.category, Px.cream)
-                if (t.people > 1 || t.shares.size > 1) Chip("Split ×${maxOf(t.people, t.shares.size)}", Px.blue)
+                if (t.isSplit) {
+                    Chip("Split ×${maxOf(t.people, t.shares.size)}", Px.blue)
+                    val d = t.debtors
+                    if (d.isNotEmpty()) Chip("${d.count { it in t.paidBack }}/${d.size} paid", if (d.all { it in t.paidBack }) Px.green else Px.creamLight)
+                }
             }
         }
         Column(horizontalAlignment = Alignment.End) {
             Text(money(t.myShare, cur), style = Type.body)
-            if (t.myShare != t.total) Small("of ${money(t.total, cur)}")
+            if (t.isSplit) Small("my share of ${money(t.total, cur)}")
             t.foreign?.let { Small(money(it.amount, it.currency)) }
         }
+    }
+    if (trackPaid && t.isSplit && t.debtors.isNotEmpty()) {
+        Small(if (t.payer == ME) "Tap who has paid you back:" else "Paid ${personLabel(t.payer)} back?")
+        Toggles(t.debtors.map { it to personLabel(it) + if (it == ME) " (you)" else "" }, t.paidBack) { App.store.togglePaidBack(t.id, it) }
+    }
     }
 }

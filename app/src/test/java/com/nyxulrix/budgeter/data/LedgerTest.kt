@@ -37,8 +37,9 @@ class LedgerTest {
         )
         val s = st.snapshot(oct5)
         assertEquals(15_000L, s.spent)
-        // (310000 - 12000) / 27 days left including today
-        assertEquals(11_037L, s.day.budget)
+        // base 310000/31 = 10000 a day; 4 days before today = 40000, 12000 spent → 28000 saved up
+        assertEquals(10_000L, s.day.budget)
+        assertEquals(28_000L, s.day.bonus)
         assertEquals(3_000L, s.day.spent)
     }
 
@@ -97,11 +98,12 @@ class LedgerTest {
         val groceries = base.copy(txns = listOf(Txn(date = "2026-10-05", total = 27_000, category = "Groceries")))
         val s = groceries.snapshot(oct5)
         assertEquals(0L, s.day.spent)                                  // not counted against today
-        assertEquals((310_000L - 27_000) / 27, s.day.budget)           // but today's budget already reflects it
+        assertEquals(10_000L, s.day.budget)
+        assertEquals(40_000L - 27_000, s.day.bonus)                    // but today's money already reflects it
         assertEquals(27_000L, s.spent)                                 // and the month counts it
         val food = base.copy(txns = listOf(Txn(date = "2026-10-05", total = 2_000, category = "Food")))
         assertEquals(2_000L, food.snapshot(oct5).day.spent)
-        assertEquals(310_000L / 27, food.snapshot(oct5).day.budget)
+        assertEquals(40_000L, food.snapshot(oct5).day.bonus)
         val allDaily = groceries.copy(monthlyCategories = emptySet())
         assertEquals(27_000L, allDaily.snapshot(oct5).day.spent)
     }

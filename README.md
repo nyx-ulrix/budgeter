@@ -1,8 +1,18 @@
 # Budgeter
 
-Pixel-art Android budget planner: daily budget, monthly pacing, receipt scanning with per-item tax and service charge, bill splitting, trip budgeting, planned purchases, Google Sheets export and home-screen widgets.
+Pixel-art Android budget planner for one person. Set a monthly budget and a savings target, see what you can spend today (unspent days carry forward), scan receipts on the phone and split them per item including service charge and GST, plan trips and save for them month by month, and keep a copy in your own Google Sheet. Two home-screen widgets.
 
 Plan and decisions: [PLAN.md](PLAN.md). Art list: [docs/GRAPHICS.md](docs/GRAPHICS.md). Sheets setup: [docs/google-setup.md](docs/google-setup.md).
+
+## Screenshots
+
+| Home | Month in numbers | Budget | Transactions |
+|---|---|---|---|
+| ![Home](docs/screenshots/01-home.png) | ![Month details](docs/screenshots/02-month-details.png) | ![Budget](docs/screenshots/03-budget.png) | ![Transactions](docs/screenshots/04-transactions.png) |
+
+| Receipt split by item | Trip budget | Receipt camera | Widgets |
+|---|---|---|---|
+| ![Receipt](docs/screenshots/05-receipt.png) | ![Trip](docs/screenshots/06-trip.png) | ![Camera](docs/screenshots/07-camera.png) | ![Widgets](docs/screenshots/08-widgets.png) |
 
 ## Get the app
 

@@ -71,6 +71,7 @@ fun HomeScreen(st: AppState) {
                 Small("Budget ${money(snap.day.budget, cur)}")
                 Small("Spent ${money(snap.day.spent, cur)}")
             }
+            if (snap.day.bonus > 0) Small("+ ${money(snap.day.bonus, cur)} saved up from earlier days, yours to use any day this month", color = Px.green)
             Sparkline(st, now)
         }
 
@@ -96,10 +97,6 @@ fun HomeScreen(st: AppState) {
             PixelButton("Expense", { nav.go(Screen.Expense()) }, Modifier.weight(1f), glyph = Glyphs.plus)
             PixelButton("Scan", { scanner.camera() }, Modifier.weight(1f), glyph = Glyphs.camera)
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            PixelButton("Screenshot", { scanner.screenshot() }, Modifier.weight(1f), kind = Kind.SECONDARY, glyph = Glyphs.image)
-            PixelButton("Planned", { nav.go(Screen.PlannedEdit()) }, Modifier.weight(1f), kind = Kind.SECONDARY, art = R.drawable.icon_star)
-        }
 
         // Secondary, folded.
         st.activeTrip(now)?.let { trip ->
@@ -116,8 +113,9 @@ fun HomeScreen(st: AppState) {
 
         val top = st.planned.filter { it.status == PlannedStatus.OPEN }.sortedWith(compareBy({ it.priority }, { it.targetMonth })).take(2)
         FoldWindow("Planned purchases") {
-            if (top.isEmpty()) Small("Nothing planned. Tap Planned to add something you're saving for.")
+            if (top.isEmpty()) Small("Nothing planned yet. Add something you're saving for.")
             top.forEach { p -> PlannedRow(st, p, onReserve = { reserving = p }) }
+            PixelButton("+ Planned item", { nav.go(Screen.PlannedEdit()) }, kind = Kind.SECONDARY, art = R.drawable.icon_star)
         }
 
         FoldWindow("Recent") {

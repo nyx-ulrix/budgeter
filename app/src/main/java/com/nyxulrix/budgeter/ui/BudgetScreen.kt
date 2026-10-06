@@ -168,7 +168,7 @@ private fun BudgetWindow(st: AppState, key: String, plan: Plan, cur: String) {
 private fun IncomeWindow(key: String, plan: Plan, cur: String) {
     var text by remember(key, plan.income) { mutableStateOf(plain(plan.income, cur)) }
     val v = parseMoney(text, cur)
-    Window("Income") {
+    FoldWindow("Income") {
         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PixelField(text, { text = it }, "Monthly income / allowance", Modifier.weight(1f), keyboard = KeyboardType.Decimal,
                 error = if (v == null) "Not a number" else null)

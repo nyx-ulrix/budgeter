@@ -51,7 +51,7 @@ class HttpError(val code: Int, msg: String) : Exception(msg)
 
 /** Export of transactions to one Google spreadsheet, one tab per budget period. Export only. */
 object Sheets {
-    private val HEADER = listOf("ID", "Date", "Merchant", "Category", "Amount", "My Share", "Tax", "Service Charge",
+    private val HEADER = listOf("ID", "Date", "Name", "Category", "Amount", "My Share", "Tax", "Service Charge",
         "Paid Currency", "Paid Amount", "Payer", "Split Method", "People", "Trip", "Items JSON", "Notes")
     private const val LAST_COL = "P"
 
