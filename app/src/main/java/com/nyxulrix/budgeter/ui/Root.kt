@@ -49,7 +49,7 @@ enum class Tab(val label: String, val glyph: List<String>) {
     HOME("Home", Glyphs.home),
     TXNS("Txns", Glyphs.list),
     BUDGET("Budget", Glyphs.coin),
-    SHARED("Shared", Glyphs.people),
+    GROUPS("Groups", Glyphs.people),
     PROFILE("Profile", Glyphs.person),
 }
 
@@ -102,7 +102,7 @@ fun Root(nav: Nav) {
                             Tab.HOME -> HomeScreen(st)
                             Tab.TXNS -> TxnsScreen(st)
                             Tab.BUDGET -> BudgetScreen(st)
-                            Tab.SHARED -> SharedScreen(st)
+                            Tab.GROUPS -> GroupsScreen(st)
                             Tab.PROFILE -> ProfileScreen(st)
                         }
                         is Screen.Expense -> ExpenseScreen(st, top)

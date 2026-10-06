@@ -139,6 +139,10 @@ data class Settlement(
     val date: String,
 )
 
+/**
+ * A trip you budget for: planned costs set the target, and money is set aside each month until it starts.
+ * Trip spending then comes out of what was set aside, never the daily budget.
+ */
 @Serializable
 data class Trip(
     val id: String = newId(),
@@ -148,6 +152,24 @@ data class Trip(
     val start: String,
     val end: String,
     val groupId: String? = null,
+    val costs: List<TripCost> = emptyList(),
+    val monthly: Long = 0,                 // set aside each period from [monthlyFrom] until the trip starts
+    val monthlyFrom: String? = null,       // period key the current monthly amount began
+) {
+    /** What the trip is planned to cost: the sum of its planned costs. */
+    val target: Long get() = costs.sumOf { it.amount }
+}
+
+val TRIP_COST_KINDS = listOf("Flights", "Stay", "Food", "Transport", "Activities", "Shopping", "Other")
+
+/** One planned cost, in home currency. [paidTxnId] links the expense recorded when it was paid. */
+@Serializable
+data class TripCost(
+    val id: String = newId(),
+    val name: String,
+    val amount: Long,
+    val kind: String = "Other",
+    val paidTxnId: String? = null,
 )
 
 @Serializable

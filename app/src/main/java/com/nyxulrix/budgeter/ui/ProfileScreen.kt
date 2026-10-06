@@ -190,10 +190,12 @@ private fun ProviderForm(presetId: String, existing: Provider?, onSaved: () -> U
             scope.launch { models = runCatching { Ai.models(ctx, existing) }.getOrDefault(emptyList()); if (models.isEmpty()) Toast.makeText(ctx, "No model list available.", Toast.LENGTH_SHORT).show() }
         }, kind = Kind.SECONDARY)
         if (models.isNotEmpty()) Choice(models.take(40), model, { it }, { model = it })
+        if (base.isNotBlank() && !Ai.safeBase(base.trim())) Small("Use https, or http only for this phone or your home network.", color = Px.red)
         PixelButton("Save", {
-            Ai.save(ctx, (existing ?: Provider(preset = presetId, label = "", base = "", model = "")).copy(label = label.trim(), base = base.trim(), model = model.trim()), key.ifBlank { null })
-            onSaved()
-        }, Modifier.fillMaxWidth(), enabled = label.isNotBlank() && model.isNotBlank() && base.isNotBlank() && (existing != null || key.isNotBlank()))
+            runCatching {
+                Ai.save(ctx, (existing ?: Provider(preset = presetId, label = "", base = "", model = "")).copy(label = label.trim(), base = base.trim(), model = model.trim()), key.ifBlank { null })
+            }.onSuccess { onSaved() }.onFailure { Toast.makeText(ctx, it.message, Toast.LENGTH_LONG).show() }
+        }, Modifier.fillMaxWidth(), enabled = label.isNotBlank() && model.isNotBlank() && Ai.safeBase(base.trim()) && (existing != null || key.isNotBlank()))
         if (existing != null) PixelButton("Remove", { Ai.remove(ctx, existing.id); onSaved() }, Modifier.fillMaxWidth(), kind = Kind.DANGER)
     }
 }

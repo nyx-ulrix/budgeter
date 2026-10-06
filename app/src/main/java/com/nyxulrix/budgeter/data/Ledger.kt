@@ -23,13 +23,25 @@ val AppState.liveTxns: List<Txn> get() = txns.filter { !it.deleted }
  * savings and caps (not extras, reservations or trip funds, which are one-offs).
  */
 fun AppState.planFor(key: String): Plan = plans[key] ?: plans.filterKeys { it < key }.maxByOrNull { it.key }?.value?.let { p ->
-    Plan(p.income, p.lines.filter { it.kind == LineKind.FIXED || it.kind == LineKind.SAVINGS }.map { it.copy(id = newId()) }, p.caps)
+    Plan(p.income, p.lines.filter { it.kind == LineKind.FIXED || it.kind == LineKind.SAVINGS }, p.caps)
 } ?: Plan()
+
+/** Savings set aside from the first planned month through [key], counting months that inherit their plan. */
+fun AppState.savedToDate(key: String): Long {
+    val first = plans.keys.minOrNull() ?: return 0
+    var p = Period.ofKey(first, startDay)
+    var sum = 0L
+    while (p.key <= key) { sum += planFor(p.key).total(LineKind.SAVINGS); p = p.next() }
+    return sum
+}
 
 fun Plan.total(kind: LineKind): Long = lines.filter { it.kind == kind }.sumOf { it.amount }
 
-/** Income + extra − fixed − savings − reservations − trip funds. */
+/** Income + extra − fixed − savings − reservations − one-off trip set-asides (not monthly trip savings). */
 val Plan.spendable: Long get() = income + lines.sumOf { if (it.kind.adds) it.amount else -it.amount }
+
+/** What's spendable in a period after everything is set aside, including monthly trip savings. */
+fun AppState.spendable(key: String): Long = planFor(key).spendable - tripMonthlyTotal(key)
 
 private fun Txn.inBudget(p: Period) = !deleted && tripId == null && LocalDate.parse(date) in p
 
@@ -49,7 +61,7 @@ data class Snapshot(
 /** Home-screen numbers for [date]. */
 fun AppState.snapshot(date: LocalDate = LocalDate.now()): Snapshot {
     val p = periodOf(date)
-    val spendable = planFor(p.key).spendable
+    val spendable = spendable(p.key)
     val inP = txns.filter { it.inBudget(p) }
     val before = inP.filter { LocalDate.parse(it.date).isBefore(date) }.sumOf { it.budgetImpact }
     val onDay = inP.filter { LocalDate.parse(it.date) == date }.sumOf { it.budgetImpact }
@@ -78,8 +90,49 @@ fun AppState.reserved(plannedId: String): Long =
 
 // Trips
 
-fun AppState.tripFund(tripId: String): Long =
+/** One-off set-asides for a trip (top-ups and money already moved in past months). */
+fun AppState.tripLines(tripId: String): Long =
     plans.values.sumOf { p -> p.lines.filter { it.tripId == tripId && it.kind == LineKind.TRIP_FUND }.sumOf { it.amount } }
+
+/**
+ * Monthly set-aside per period for a trip: from [Trip.monthlyFrom] through the period the trip starts in,
+ * stopping once the planned costs are covered. Future periods are included so their budgets show it ahead.
+ */
+fun AppState.tripMonthly(t: Trip): Map<String, Long> {
+    val from = t.monthlyFrom ?: return emptyMap()
+    if (t.monthly <= 0) return emptyMap()
+    val last = periodOf(LocalDate.parse(t.start)).key
+    var saved = tripLines(t.id)
+    val out = linkedMapOf<String, Long>()
+    var p = Period.ofKey(from, startDay)
+    while (p.key <= last) {
+        val amt = if (t.target > 0) minOf(t.monthly, (t.target - saved).coerceAtLeast(0)) else t.monthly
+        if (amt > 0) out[p.key] = amt
+        saved += amt
+        p = p.next()
+    }
+    return out
+}
+
+fun AppState.tripMonthlyTotal(key: String): Long = trips.sumOf { tripMonthly(it)[key] ?: 0 }
+
+/** Money set aside for the trip so far (up to and including the current period). */
+fun AppState.tripFund(tripId: String, date: LocalDate = LocalDate.now()): Long {
+    val t = trips.firstOrNull { it.id == tripId } ?: return tripLines(tripId)
+    val now = periodOf(date).key
+    return tripLines(tripId) + tripMonthly(t).filterKeys { it <= now }.values.sum()
+}
+
+/** Money that will have been set aside by the time the trip starts, if the plan holds. */
+fun AppState.tripFundAtStart(t: Trip): Long = tripLines(t.id) + tripMonthly(t).values.sum()
+
+/** Periods left to save in, counting the current one, until the trip's start period. 0 once it has started. */
+fun AppState.monthsToSave(t: Trip, date: LocalDate = LocalDate.now()): Int {
+    var p = periodOf(date); val last = periodOf(LocalDate.parse(t.start)).key
+    var n = 0
+    while (p.key <= last && !LocalDate.parse(t.start).isBefore(date)) { n++; p = p.next() }
+    return n
+}
 
 fun AppState.tripSpent(tripId: String): Long = liveTxns.filter { it.tripId == tripId }.sumOf { it.myShare }
 

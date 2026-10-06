@@ -37,6 +37,8 @@ import com.nyxulrix.budgeter.data.reserve
 import com.nyxulrix.budgeter.data.reserved
 import com.nyxulrix.budgeter.data.snapshot
 import com.nyxulrix.budgeter.data.spendable
+import com.nyxulrix.budgeter.data.savedToDate
+import com.nyxulrix.budgeter.data.tripMonthlyTotal
 import com.nyxulrix.budgeter.data.spent
 import com.nyxulrix.budgeter.data.startDay
 import com.nyxulrix.budgeter.data.total
@@ -68,9 +70,10 @@ fun BudgetScreen(st: AppState) {
             KeyValue("− Fixed costs", money(plan.total(LineKind.FIXED), cur))
             KeyValue("− Savings", money(plan.total(LineKind.SAVINGS), cur))
             KeyValue("− Reserved for planned", money(plan.total(LineKind.RESERVE), cur))
-            KeyValue("− Trip funds", money(plan.total(LineKind.TRIP_FUND), cur))
+            KeyValue("− Trip savings", money(plan.total(LineKind.TRIP_FUND) + st.tripMonthlyTotal(key), cur))
             Rule()
-            KeyValue("= Spendable", money(plan.spendable, cur), if (plan.spendable < 0) Px.red else Px.brown)
+            val spendable = st.spendable(key)
+            KeyValue("= Spendable", money(spendable, cur), if (spendable < 0) Px.red else Px.brown)
             KeyValue("Spent so far", money(st.spent(p), cur))
         }
 
@@ -83,7 +86,7 @@ fun BudgetScreen(st: AppState) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Art(R.drawable.icon_money_bag, 28.dp)
                 Column1(Modifier.weight(1f)) {
-                    val allTime = st.plans.filterKeys { it <= key }.values.sumOf { it.total(LineKind.SAVINGS) }
+                    val allTime = st.savedToDate(key)
                     KeyValue("This month", money(plan.total(LineKind.SAVINGS), cur))
                     KeyValue("Saved to date", money(allTime, cur))
                 }
@@ -108,6 +111,8 @@ fun BudgetScreen(st: AppState) {
             val spentBy = st.byCategory(p)
             st.categories.forEach { c -> CapRow(c, key, plan, cur, spentBy[c] ?: 0) }
         }
+
+        TripsWindow(st)
 
         Window("Planned purchases") {
             val open = st.planned.filter { it.status == PlannedStatus.OPEN }.sortedWith(compareBy({ it.priority }, { it.targetMonth }))

@@ -88,10 +88,42 @@ fun Store.settleUp(groupId: String, from: String, to: String, amount: Long) = up
 
 // Trips
 
-/** Creates a trip and sets its fund aside in the current period. */
-fun Store.addTrip(t: Trip, fund: Long) {
-    update { it.copy(trips = it.trips + t) }
-    if (fund > 0) topUpTrip(t, fund)
+fun Store.addTrip(t: Trip) = update { it.copy(trips = it.trips + t) }
+
+/**
+ * Changes the monthly set-aside. Months already past keep what they set aside: their amounts become
+ * fixed trip-fund lines, and the new amount runs from the current period.
+ */
+fun Store.setTripMonthly(t: Trip, amount: Long) = update { st ->
+    val now = st.periodOf(LocalDate.now()).key
+    val past = st.tripMonthly(t).filterKeys { it < now }
+    var plans = st.plans
+    past.forEach { (key, amt) ->
+        val p = st.copy(plans = plans).planFor(key)
+        plans = plans + (key to p.copy(lines = p.lines + Line(kind = LineKind.TRIP_FUND, name = "Trip: ${t.name} (monthly)", amount = amt, tripId = t.id)))
+    }
+    st.copy(plans = plans, trips = st.trips.map {
+        if (it.id == t.id) it.copy(monthly = amount, monthlyFrom = if (amount > 0) now else null) else it
+    })
+}
+
+fun Store.saveTripCost(tripId: String, c: TripCost) = update { st ->
+    st.copy(trips = st.trips.map { t ->
+        if (t.id != tripId) t else t.copy(costs = if (t.costs.any { it.id == c.id }) t.costs.map { if (it.id == c.id) c else it } else t.costs + c)
+    })
+}
+
+fun Store.deleteTripCost(tripId: String, costId: String) = update { st ->
+    st.copy(trips = st.trips.map { t -> if (t.id != tripId) t else t.copy(costs = t.costs.filterNot { it.id == costId }) })
+}
+
+/** Records a planned cost as paid today: a trip expense for its amount, linked back to the cost. */
+fun Store.payTripCost(t: Trip, c: TripCost) = update { st ->
+    val txn = Txn(date = LocalDate.now().toString(), total = c.amount, category = c.kind, merchant = c.name, tripId = t.id, note = "Planned trip cost")
+    st.copy(
+        txns = st.txns + txn,
+        trips = st.trips.map { tr -> if (tr.id != t.id) tr else tr.copy(costs = tr.costs.map { if (it.id == c.id) it.copy(paidTxnId = txn.id) else it }) },
+    )
 }
 
 fun Store.topUpTrip(t: Trip, amount: Long) {
@@ -101,7 +133,7 @@ fun Store.topUpTrip(t: Trip, amount: Long) {
 
 fun Store.saveTrip(t: Trip) = update { st -> st.copy(trips = st.trips.map { if (it.id == t.id) t else it }) }
 
-/** Deletes the trip with its fund set-asides and its expenses, as if it never happened. */
+/** Deletes the trip with its set-asides (one-off and monthly) and its expenses, as if it never happened. */
 fun Store.deleteTrip(id: String) = update { st ->
     st.copy(
         trips = st.trips.filterNot { it.id == id },

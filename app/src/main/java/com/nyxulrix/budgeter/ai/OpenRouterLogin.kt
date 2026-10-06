@@ -36,14 +36,18 @@ object OpenRouterLogin {
         val app = ctx.applicationContext
         thread(name = "openrouter-callback", isDaemon = true) {
             runCatching {
-                s.accept().use { sock ->
+                while (!s.isClosed) s.accept().use { sock ->                // stray local connections are ignored; wait for the callback
+                    sock.soTimeout = 15_000
                     val line = sock.getInputStream().bufferedReader().readLine().orEmpty()     // GET /callback?code=... HTTP/1.1
-                    val code = Uri.parse("http://localhost" + line.split(" ").getOrElse(1) { "/" }).getQueryParameter("code")
+                    val uri = Uri.parse("http://localhost" + line.split(" ").getOrElse(1) { "/" })
+                    if (uri.path != "/callback") return@use
+                    val code = uri.getQueryParameter("code")
                     val page = if (code != null) "Signed in. Return to Budgeter." else "Sign-in was cancelled."
                     val html = "<html><body style='font-family:monospace;background:#E7D6AD;padding:24px'><h2>$page</h2>" +
                         "<p><a href='budgeter://openrouter'>Open Budgeter</a></p></body></html>"
                     sock.getOutputStream().write(("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n$html").toByteArray())
                     if (code != null) exchange(app, code) else status.value = "Sign-in cancelled."
+                    s.close()
                 }
             }.onFailure { if (status.value == "Waiting for sign-in…") status.value = "Sign-in timed out. Try again or paste the code." }
             s.close()

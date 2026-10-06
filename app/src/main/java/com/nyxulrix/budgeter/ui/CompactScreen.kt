@@ -36,10 +36,10 @@ import java.time.LocalDate
 
 /**
  * True on a small screen such as a flip phone's cover display (Oppo Find N Flip, Galaxy Z Flip Flex Window).
- * Main phone screens are 360dp+ wide and 600dp+ tall, so this never triggers there.
+ * Uses the smallest side, so a normal phone (360dp+) turned landscape never triggers it.
  */
 @Composable
-fun isCompact(): Boolean = LocalConfiguration.current.let { it.screenWidthDp < 320 || it.screenHeightDp < 440 }
+fun isCompact(): Boolean = LocalConfiguration.current.smallestScreenWidthDp < 320
 
 /**
  * Concise view for a cover screen: today's number, month bar, quick add and scan. Nothing else.

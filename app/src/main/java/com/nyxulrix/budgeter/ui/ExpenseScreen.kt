@@ -24,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -156,7 +157,7 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
     // Fetch a rate when paying in another currency; the user can overwrite it.
     LaunchedEffect(cur) {
         if (cur == home) d.rate = "1"
-        else if (existing?.foreign?.currency != cur) { d.rate = ""; Rates.rate(cur, home)?.let { d.rate = it.toString() } }
+        else if (existing?.foreign?.currency != cur) { d.rate = ""; Rates.rate(cur, home)?.let { r -> if (d.rate.isBlank()) d.rate = r.toString() } }
     }
 
     // Derived numbers.
@@ -177,6 +178,7 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
     val amountV = m(d.amount)
     if (!d.itemised && (amountV == null || d.amount.isBlank())) errors += "Enter an amount"
     val totalPaid = receipt?.computedTotal ?: ((amountV ?: 0) + (svcV ?: 0) + (if (d.taxIncluded) 0 else taxV ?: 0))
+    if (totalPaid <= 0) errors += "The total must be more than zero"
     val rate = if (cur == home) 1.0 else d.rate.toDoubleOrNull()?.takeIf { it > 0 }
     if (rate == null) errors += "Enter the exchange rate"
     val totalHome = convert(totalPaid, cur, home, rate ?: 1.0)
@@ -198,6 +200,7 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
                 allocate(totalHome, paid)
             }
         }
+        require(parts.sum() == totalHome) { "Split doesn't add up to the total" }
         members.zip(parts).toMap()
     }.getOrElse { errors += (it.message ?: "Split doesn't add up"); emptyMap() }
 
@@ -232,6 +235,7 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
             plannedId = existing?.plannedId,
             fromReserve = existing?.fromReserve ?: 0,
             syncedAt = existing?.syncedAt,
+            syncedTab = existing?.syncedTab,
         )
         App.store.saveTxn(t)
         nav.back()
@@ -241,7 +245,10 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
         PageHeader(when { existing != null -> "Edit"; s.receipt != null -> "Check receipt"; else -> "New expense" })
 
         Window(if (d.itemised) "Receipt items" else "Expense") {
-            Choice(listOf(false, true), d.itemised, { if (it) "Itemised" else "Simple" }, { d.itemised = it })
+            Choice(listOf(false, true), d.itemised, { if (it) "Itemised" else "Simple" }, {
+                d.itemised = it
+                if (!it && d.method == SplitMethod.ITEMS) d.method = SplitMethod.EQUAL
+            })
             if (!d.itemised) {
                 PixelField(d.amount, { d.amount = it }, "Amount ($cur)", keyboard = KeyboardType.Decimal, placeholder = "0.00")
                 FoldWindow("Tax & service charge", open = d.tax.isNotBlank() || d.service.isNotBlank()) {
@@ -368,7 +375,8 @@ fun ScanningOverlay(status: String) {
     androidx.compose.foundation.layout.Box(
         Modifier.fillMaxSize()
             .background(Px.navy.copy(alpha = 0.6f))
-            .clickable(enabled = false) {}.padding(24.dp),
+            .pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent().changes.forEach { it.consume() } } }
+            .padding(24.dp),
         contentAlignment = Alignment.Center,
     ) {
         Window("Scanning.exe", Modifier.width(320.dp)) {

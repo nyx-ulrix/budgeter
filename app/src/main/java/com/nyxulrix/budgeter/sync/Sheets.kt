@@ -23,6 +23,7 @@ import com.nyxulrix.budgeter.data.periodOf
 import com.nyxulrix.budgeter.data.personName
 import com.nyxulrix.budgeter.data.setSync
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
@@ -56,15 +57,35 @@ object Sheets {
 
     fun needsSync(t: Txn) = t.syncedAt == null || t.updatedAt > t.syncedAt
 
-    /** Pushes every new, changed or deleted transaction. Throws [HttpError] on API errors. */
-    suspend fun run(token: String) {
+    private val lock = kotlinx.coroutines.sync.Mutex()
+
+    /**
+     * Pushes every new, changed or deleted transaction. Throws [HttpError] on API errors.
+     * One run at a time: a replaced worker can't be interrupted mid-HTTP, so a second run waits instead of
+     * racing it and appending the same rows twice.
+     */
+    suspend fun run(token: String) = lock.withLock { runLocked(token) }
+
+    private fun runLocked(token: String) {
         val store = App.store
         var st = store.value
-        val sheetId = st.sync.spreadsheetId ?: createSpreadsheet(token).also { id -> store.update(false) { it.copy(sync = it.sync.copy(spreadsheetId = id)) } }
+        var sheetId = st.sync.spreadsheetId ?: createSpreadsheet(token).also { id -> store.update(false) { it.copy(sync = it.sync.copy(spreadsheetId = id)) } }
+        val tabs = try {
+            existingTabs(token, sheetId).toMutableSet()
+        } catch (e: HttpError) {
+            if (e.code != 404) throw e
+            // The spreadsheet was deleted: start a fresh one and push everything again.
+            val fresh = createSpreadsheet(token)
+            sheetId = fresh
+            store.update(false) { s -> s.copy(sync = s.sync.copy(spreadsheetId = fresh), txns = s.txns.map { it.copy(syncedAt = null, syncedTab = null) }) }
+            mutableSetOf()
+        }
         st = store.value
         val todo = st.txns.filter(::needsSync)
-        if (todo.isEmpty()) return
-        val tabs = existingTabs(token, sheetId).toMutableSet()
+        if (todo.isEmpty()) {
+            store.update(false) { it.copy(sync = it.sync.copy(lastSync = System.currentTimeMillis(), paused = null)) }
+            return
+        }
         val now = System.currentTimeMillis()
         val done = mutableMapOf<String, String?>()   // txn id → tab written (null = deleted)
 
@@ -91,8 +112,8 @@ object Sheets {
                 txns = s.txns.mapNotNull { t ->
                     when {
                         t.id !in done -> t
+                        t.updatedAt > todo.first { it.id == t.id }.updatedAt -> t        // edited or deleted mid-sync: next run handles it
                         t.deleted -> null                                                 // removal reached Sheets: purge
-                        t.updatedAt > (todo.first { it.id == t.id }.updatedAt) -> t      // edited again mid-sync
                         else -> t.copy(syncedAt = now, syncedTab = done[t.id])
                     }
                 },
@@ -202,6 +223,8 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
             }
         } catch (e: IOException) {
             Result.retry()
+        } catch (e: Exception) {
+            pause("Sync failed: ${e.message ?: e.javaClass.simpleName}")
         }
     }
 

@@ -37,12 +37,13 @@ class Store(dir: File, private val scope: CoroutineScope) {
     }
 
     private fun write(s: AppState) {
-        val out = file.startWrite()
+        var out: java.io.FileOutputStream? = null
         try {
+            out = file.startWrite()
             out.write(json.encodeToString(AppState.serializer(), s).toByteArray())
             file.finishWrite(out)
         } catch (e: Exception) {
-            file.failWrite(out)
+            out?.let { file.failWrite(it) }
             Log.e("Store", "save failed", e)
         }
     }

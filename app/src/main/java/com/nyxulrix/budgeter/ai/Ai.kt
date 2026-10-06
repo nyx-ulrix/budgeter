@@ -131,7 +131,8 @@ Rules:
     suspend fun parse(ctx: Context, p: Provider?, text: String, fallbackCurrency: String): ParsedReceipt {
         if (p == null) return ReceiptText.parse(text, fallbackCurrency)
         val reply = chat(ctx, p, SYSTEM, text)
-        val obj = reply.substring(reply.indexOf('{').coerceAtLeast(0), (reply.lastIndexOf('}') + 1).coerceAtLeast(0))
+        val a = reply.indexOf('{'); val b = reply.lastIndexOf('}')
+        val obj = if (a >= 0 && b > a) reply.substring(a, b + 1) else ""
         val d = runCatching { json.decodeFromString(Dto.serializer(), obj) }.getOrElse { throw Exception("${p.label} didn't return receipt data. Try again or use the built-in reader.") }
         val cur = d.currency?.uppercase()?.takeIf { it.length == 3 } ?: fallbackCurrency
         fun m(v: Double?) = v?.let { BigDecimal.valueOf(it).movePointRight(digits(cur)).setScale(0, RoundingMode.HALF_UP).toLong() }
@@ -174,7 +175,18 @@ Rules:
         }.getOrDefault(emptyList())
     }
 
+    /** Keys only travel over HTTPS, except to this phone or the local network (Ollama, LM Studio). */
+    fun safeBase(base: String): Boolean {
+        val u = runCatching { java.net.URI(base) }.getOrNull() ?: return false
+        if (u.scheme == "https") return true
+        if (u.scheme != "http") return false
+        val h = u.host ?: return false
+        return h == "localhost" || h.endsWith(".local") || h.startsWith("127.") || h.startsWith("10.") || h.startsWith("192.168.") ||
+            Regex("^172\\.(1[6-9]|2\\d|3[01])\\.").containsMatchIn(h)
+    }
+
     private fun http(method: String, url: String, key: String, p: Provider, body: String?): String {
+        if (!safeBase(url)) throw Exception("${p.label}: plain http is only allowed on your own network. Use https.")
         val c = URL(url).openConnection() as HttpURLConnection
         try {
             c.requestMethod = method
@@ -225,10 +237,17 @@ object Secrets {
         }.generateKey()
     }
 
+    /** Throws a readable error if the phone's keystore refuses; a broken key is replaced once before giving up. */
     fun put(ctx: Context, name: String, value: String) {
-        val c = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, key()) }
-        val enc = c.doFinal(value.toByteArray())
-        prefs(ctx).edit().putString(name, b64(c.iv) + ":" + b64(enc)).apply()
+        fun attempt() {
+            val c = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, key()) }
+            val enc = c.doFinal(value.toByteArray())
+            prefs(ctx).edit().putString(name, b64(c.iv) + ":" + b64(enc)).apply()
+        }
+        try { attempt() } catch (e: Exception) {
+            runCatching { KeyStore.getInstance("AndroidKeyStore").apply { load(null) }.deleteEntry(ALIAS) }
+            try { attempt() } catch (e2: Exception) { throw Exception("Couldn't store the key securely on this phone.") }
+        }
     }
 
     /** Null if missing or unreadable (e.g. restored from a backup to a new phone, where the key doesn't exist). */

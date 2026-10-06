@@ -9,9 +9,15 @@ import java.time.Month
  * ponytail: keyword heuristics cover common till receipts; odd layouts fall back to the user correcting the editor.
  */
 object ReceiptText {
-    private val price = Regex(
-        """(-)?\s*(?:S\$|RM|US\$|\$|€|£|¥|₩|SGD|MYR|USD)?\s*(\d{1,3}(?:,\d{3})+\.\d{2}|\d+[.,]\d{2})\s*(-)?\s*[A-Za-z*#]?\s*$"""
-    )
+    /** A price at the end of a line, shaped by how many decimals the currency uses (¥1,200 / 12.50 / 1.250). */
+    private fun priceRegex(decimals: Int): Regex {
+        val num = when (decimals) {
+            0 -> """\d{1,3}(?:[,.]\d{3})+|\d+"""
+            2 -> """\d{1,3}(?:,\d{3})+\.\d{2}|\d+[.,]\d{2}"""
+            else -> """\d{1,3}(?:,\d{3})+\.\d{$decimals}|\d+[.,]\d{$decimals}"""
+        }
+        return Regex("""(-)?\s*(?:S\$|RM|US\$|\$|€|£|¥|円|₩|SGD|MYR|USD|JPY|KD|KWD)?\s*($num)\s*(-)?\s*[A-Za-z*#円]?\s*$""")
+    }
     private val qtyPrefix = Regex("""^(\d{1,2})\s*[xX@]?\s+(.*[A-Za-z].*)$""")
     private val skip = Regex("""\b(CHANGE|CASH|TENDER|VISA|MASTER|AMEX|NETS|PAYNOW|CARD|PAID|PAYMENT|ROUNDING|ITEMS?\s*COUNT|QTY)\b""")
     private val subtotalWord = Regex("""SUB\s*-?\s*TOTAL""")
@@ -33,6 +39,7 @@ object ReceiptText {
             else -> null
         }
         val cur = currency ?: fallbackCurrency
+        val price = priceRegex(digits(cur))
         var merchant = ""
         var date: String? = null
         val items = mutableListOf<ReceiptItem>()

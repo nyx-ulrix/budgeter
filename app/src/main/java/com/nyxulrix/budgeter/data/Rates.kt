@@ -17,7 +17,8 @@ object Rates {
         if (from == to) return@withContext 1.0
         val today = LocalDate.now()
         val table = cache[from]?.takeIf { it.first == today }?.second ?: runCatching {
-            val o = json.parseToJsonElement(URL("https://open.er-api.com/v6/latest/$from").readText()).jsonObject
+            val c = URL("https://open.er-api.com/v6/latest/$from").openConnection().apply { connectTimeout = 8_000; readTimeout = 8_000 }
+            val o = json.parseToJsonElement(c.getInputStream().bufferedReader().use { it.readText() }).jsonObject
             o["rates"]!!.jsonObject.mapValues { it.value.jsonPrimitive.double }.also { cache[from] = today to it }
         }.getOrNull()
         table?.get(to)

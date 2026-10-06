@@ -135,6 +135,12 @@ class CoreTest {
         assertEquals(2_638L, r.total)
         assertEquals(0L, r.mismatch)
 
+        val yen = ReceiptText.parse("RAMEN YA\nShoyu Ramen ¥1,200\nGyoza 450\nTotal ¥1,650", "JPY")
+        assertEquals(listOf(1_200L, 450L), yen.items.map { it.price })
+        assertEquals(1_650L, yen.total)
+        val dinar = ReceiptText.parse("CAFE\nTea 1.250\nTotal 1.250", "KWD")
+        assertEquals(1_250L, dinar.total)
+
         val inclusive = ReceiptText.parse("SHOP\nApple 3.27\nTotal 3.27\nGST incl. 0.27", "SGD")
         assertTrue(inclusive.taxIncluded)
         assertEquals(0L, inclusive.mismatch)

@@ -3,7 +3,7 @@
 Android budget planner from `Budget_Planner_App_PRD.md`, skinned with the Nostelika pixel-art brief.
 This file records every decision that differs from or adds to those two briefs. Where it is silent, the briefs apply.
 
-Status: building, started 2026-10-06.
+Status: v1 built and smoke-tested on an emulator, 2026-10-06. Sheets sync is coded but waits on the Google Cloud setup in `docs/google-setup.md`.
 
 ---
 
@@ -27,6 +27,8 @@ Status: building, started 2026-10-06.
 | Trips | Pre-funded. Trip spending draws from its own fund and is excluded from the monthly and daily budget | User |
 | Art | Royalty-free pixel art as placeholders. User supplies final art later | User |
 | Google OAuth | Later. User creates the Cloud project at the Sheets milestone; app is built with sync ready but switched off | User |
+| Flip phones | Concise view on small cover screens (Oppo Find N Flip and similar), responsive widgets with a tiny layout | User |
+| Graphics | Full list of planned art in `docs/GRAPHICS.md`; drop-in file names replace placeholders with no code change | User |
 | Spent = my share | Only my share of a split bill counts against my budget. **Assumed, please confirm** | Default |
 
 ---
@@ -146,7 +148,7 @@ Every supported provider exposes an OpenAI-compatible `chat/completions` endpoin
 | Preset | How the user connects | Cost for receipt parsing |
 |---|---|---|
 | Gemini | Free API key from aistudio.google.com/apikey | Free tier |
-| OpenRouter | **Sign in** button (OAuth PKCE in a browser tab). One login reaches Claude, Gemini, GPT, DeepSeek, Perplexity and free models | Pay per use, or free models |
+| OpenRouter | **Sign in** button (OAuth PKCE in the browser; the app catches the reply on a one-shot localhost listener, with a paste-the-code fallback). One login reaches Claude, Gemini, GPT, DeepSeek, Perplexity and free models | Pay per use, or free models |
 | Claude | Anthropic API key | Pay per use |
 | OpenAI | API key | Pay per use |
 | DeepSeek | API key | Pay per use, very cheap |
@@ -161,7 +163,7 @@ Every supported provider exposes an OpenAI-compatible `chat/completions` endpoin
 ## 7. Google Sheets sync
 
 - **Scope: `drive.file` instead of the PRD's `spreadsheets`.** The app creates its own spreadsheet and edits only that. `drive.file` is non-sensitive, so no Google verification and no weekly re-consent. Catch: the app cannot write into a sheet you created by hand.
-- Sign-in with Credential Manager; Sheets access via `AuthorizationClient`. Play Services holds the refresh token, so the app never stores one (replaces PRD 10.2).
+- `AuthorizationClient` handles account choice and the Sheets grant in one step, so no separate sign-in library. Play Services holds the refresh token; the app never stores one (replaces PRD 10.2).
 - One spreadsheet, one tab per period (`2026-10`), header row on first write.
 - Columns: `ID, Date, Merchant, Category, Amount, My Share, Tax, Service Charge, Payer, Split Method, Trip, Currency, Items JSON, Notes`.
 - Duplicates prevented by looking up the `ID` column before appending. Edits rewrite that row; deletes clear it.
@@ -178,6 +180,9 @@ Every supported provider exposes an OpenAI-compatible `chat/completions` endpoin
 - Touch targets 48 dp minimum. Every icon button has a content description.
 - Light theme only; the brief defines no dark palette.
 
+### Flip-phone cover screen
+When the screen is under 320dp wide or 440dp tall, the app shows one concise window: today's number, month bar, Add and Scan, and the last expense. Quick add there is amount + category only. Scanned receipts still open the full editor. The activity handles screen changes itself, so folding or unfolding keeps your place.
+
 ### Navigation (5 tabs)
 `HOME · TXNS · BUDGET · SHARED · PROFILE`
 - SHARED holds Groups and Trips.
@@ -187,7 +192,7 @@ Every supported provider exposes an OpenAI-compatible `chat/completions` endpoin
 Above the fold: toolbar, Daily Budget window, Monthly Pacing window, Quick Actions row. Collapsed below: active trip, planned items, recent transactions, sync status. Hidden: category breakdown, group balances.
 
 ### Art placeholders
-CC0 pixel art (Kenney.nl) or art drawn in code, plus a mascot slot. Sources and licences go in `CREDITS.md`.
+CC0 pixel art from Ninja Adventure (Pixel-boy & AAA) and 1-bit Pixel Icons (Nikoichu), plus icons drawn in code. Sources and licences are in `CREDITS.md`; the full art list is `docs/GRAPHICS.md`.
 
 ---
 
@@ -195,6 +200,7 @@ CC0 pixel art (Kenney.nl) or art drawn in code, plus a mascot slot. Sources and 
 
 Spending Progress, Daily Budget, Quick Add (deep link to add-expense), Planned Items.
 Refreshed on every save plus once just after midnight. No periodic polling, so no refresh-rate setting.
+Each widget has a tiny layout (one big number, one line) used below about 150×60dp, which fits 1×1 cells and flip-phone cover screens. Widgets are also declared for the lock-screen category, which some cover screens use.
 
 ---
 
