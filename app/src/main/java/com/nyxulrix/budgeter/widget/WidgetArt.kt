@@ -12,12 +12,9 @@ import com.nyxulrix.budgeter.core.money
 import com.nyxulrix.budgeter.data.AppState
 import com.nyxulrix.budgeter.data.currency
 import com.nyxulrix.budgeter.data.snapshot
-import com.nyxulrix.budgeter.ui.CategoryColors
 import com.nyxulrix.budgeter.ui.Glyphs
 import com.nyxulrix.budgeter.ui.alertArgb
-import com.nyxulrix.budgeter.ui.barTotal
-import com.nyxulrix.budgeter.ui.freeAndTarget
-import com.nyxulrix.budgeter.ui.monthSegments
+import com.nyxulrix.budgeter.ui.monthBlocks
 
 /**
  * Draws widgets as pictures using the app's own pixel fonts, frames and colours, since home-screen widgets can't
@@ -81,17 +78,24 @@ object WidgetArt {
             glyph.forEachIndexed { y, row -> row.forEachIndexed { x, ch -> if (ch == '#') rect(ox + x * cell, oy + y * cell, ox + (x + 1) * cell, oy + (y + 1) * cell, CREAM_LIGHT) } }
         }
 
-        /** Segmented block bar with a 2dp outline. */
-        fun blocks(t: Float, b: Float, frac: Float, color: Int) {
-            rect(l, t, r, b, BROWN)
+        /** Segmented block bar with a 2dp outline: [colors] per block, null = empty. */
+        fun blocks(t: Float, b: Float, colors: List<Int?>, outline: Int = BROWN) {
+            rect(l, t, r, b, outline)
             rect(l + px(2f), t + px(2f), r - px(2f), b - px(2f), CREAM)
-            val n = 20; val gap = px(2f)
+            val n = colors.size; val gap = px(2f)
             val bw = ((r - l) - px(4f) - gap * (n - 1)) / n
-            val filled = (frac * n).let { if (it > 0f && it < 1f) 1 else it.toInt() }
-            for (i in 0 until n) {
+            colors.forEachIndexed { i, c ->
                 val x = l + px(2f) + i * (bw + gap)
-                rect(x, t + px(3f), x + bw, b - px(3f), if (i < filled) color else CREAM_LIGHT)
+                rect(x, t + px(3f), x + bw, b - px(3f), CREAM_LIGHT)
+                if (c != null) rect(x, t + px(3f), x + bw, b - px(3f), c)
             }
+        }
+
+        /** Same bar, filled to [frac] in one colour (20 blocks, like the app's progress bars). */
+        fun blocks(t: Float, b: Float, frac: Float, color: Int) {
+            val n = 20
+            val filled = (frac * n).let { if (it > 0f && it < 1f) 1 else it.toInt() }
+            blocks(t, b, List(n) { if (it < filled) color else null })
         }
     }
 
@@ -139,21 +143,7 @@ object WidgetArt {
             else -> "${money(snap.left, cur)} left"
         }, a.r, y, a.body, 15f, if (snap.over) RED else MUTED, right = true)
         y += a.px(4f)
-        val barB = y + barH
-        a.rect(a.l, y, a.r, barB, alert ?: BROWN)
-        a.rect(a.l + a.px(2f), y + a.px(2f), a.r - a.px(2f), barB - a.px(2f), CREAM_LIGHT)
-        val total = snap.barTotal().toFloat()
-        var x = a.l + a.px(2f)
-        val span = (a.r - a.l) - a.px(4f)
-        for (s in st.monthSegments(snap)) {
-            if (s.amount <= 0) continue
-            val wSeg = span * (s.amount / total)
-            a.rect(x, y + a.px(2f), (x + wSeg).coerceAtMost(a.r - a.px(2f)), barB - a.px(2f), alert ?: s.argb)
-            x += wSeg
-        }
-        val (free, targetLeft) = snap.freeAndTarget()
-        x += span * (free / total)
-        if (targetLeft > 0) a.rect(x, y + a.px(2f), (x + span * (targetLeft / total)).coerceAtMost(a.r - a.px(2f)), barB - a.px(2f), CategoryColors.TARGET_ZONE)
+        a.blocks(y, y + barH, st.monthBlocks(snap), alert ?: BROWN)
         return a.bmp
     }
 }

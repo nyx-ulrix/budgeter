@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Cream behind the launch screen and while the first frame draws, instead of a white flash. -->
+    <style name="Theme.Budgeter" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/cream</item>
+    </style>
+</resources>

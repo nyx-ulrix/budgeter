@@ -83,6 +83,25 @@ fun Snapshot.barTotal(): Long = (fixed + maxOf(spendable + target, spent)).coerc
 /** What's left of the bar after spending: free money, then the untouched part of the savings target. */
 fun Snapshot.freeAndTarget(): Pair<Long, Long> = (spendable - spent).coerceAtLeast(0) to (target - dipped)
 
+const val MONTH_BLOCKS = 30
+
+/**
+ * The month bar as blocks, like every other progress bar: each block takes the colour of whatever covers its
+ * middle (fixed costs, a category, the faint savings-target zone) or null when it's still free money.
+ * Filled blocks turn to the alert colour when dipping into savings or over budget.
+ */
+fun AppState.monthBlocks(snap: Snapshot, n: Int = MONTH_BLOCKS): List<Int?> {
+    val total = snap.barTotal().toDouble()
+    val alert = snap.alertArgb()
+    val bands = monthSegments(snap).filter { it.amount > 0 }.map { it.amount to (alert ?: it.argb) } +
+        snap.freeAndTarget().let { (free, target) -> listOf(free to null, target to CategoryColors.TARGET_ZONE) }
+    return (0 until n).map { i ->
+        val mid = (i + 0.5) / n * total
+        var acc = 0.0
+        bands.firstOrNull { (amt, _) -> acc += amt; mid < acc }?.second
+    }
+}
+
 /** Red when over budget, yellow when dipping into savings, else null. */
 fun Snapshot.alertArgb(): Int? = if (over) CategoryColors.OVER else if (dipping) CategoryColors.DIP else null
 
@@ -112,14 +131,13 @@ fun MonthBar(st: AppState, snap: Snapshot, legend: Boolean = true) {
                     contentDescription = (if (snap.over) "Over budget. " else if (snap.dipping) "Dipping into savings. " else "") +
                         segs.joinToString { "${it.label} ${money(it.amount, cur)}" } + ". ${money(snap.left.coerceAtLeast(0), cur)} left"
                 },
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            segs.filter { it.amount > 0 }.forEach { s ->
-                Box(Modifier.weight(s.amount.toFloat() / total).height(16.dp).alpha(if (alert != null) pulse else 1f)
-                    .background(alert ?: Color(s.argb)))
+            st.monthBlocks(snap).forEach { argb ->
+                val filled = argb != null && argb != CategoryColors.TARGET_ZONE
+                Box(Modifier.weight(1f).height(16.dp).alpha(if (filled && alert != null) pulse else 1f)
+                    .background(argb?.let { Color(it) } ?: Px.cream))
             }
-            val (free, targetLeft) = snap.freeAndTarget()
-            if (free > 0) Box(Modifier.weight(free.toFloat() / total).height(16.dp))
-            if (targetLeft > 0) Box(Modifier.weight(targetLeft.toFloat() / total).height(16.dp).background(Color(CategoryColors.TARGET_ZONE)))
         }
         if (legend) FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             segs.filter { it.amount > 0 }.forEach { s ->
