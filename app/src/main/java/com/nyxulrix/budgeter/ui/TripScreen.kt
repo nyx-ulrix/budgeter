@@ -90,7 +90,6 @@ fun TripDialog(st: AppState, existing: Trip?, onDismiss: () -> Unit) {
     var country by remember { mutableStateOf(existing?.country ?: st.setup?.country ?: "US") }
     var start by remember { mutableStateOf(existing?.start?.let(LocalDate::parse) ?: LocalDate.now().plusMonths(3)) }
     var end by remember { mutableStateOf(existing?.end?.let(LocalDate::parse) ?: LocalDate.now().plusMonths(3).plusDays(6)) }
-    var groupId by remember { mutableStateOf(existing?.groupId) }
     var picking by remember { mutableStateOf(false) }
     PixelDialog(if (existing == null) "New trip" else "Edit trip", onDismiss) {
         PixelField(name, { name = it }, "Trip name", placeholder = "Tokyo 2027")
@@ -98,13 +97,9 @@ fun TripDialog(st: AppState, existing: Trip?, onDismiss: () -> Unit) {
         PickerBox("${countryName(country)} · ${currencyOf(country)}") { picking = true }
         DateField("From", start, { start = it })
         DateField("To", end, { end = it })
-        if (st.groups.isNotEmpty()) {
-            Label("Shared with")
-            Choice(listOf<String?>(null) + st.groups.map { it.id }, groupId, { id -> st.groups.firstOrNull { it.id == id }?.name ?: "Just me" }, { groupId = it })
-        }
         PixelButton(if (existing == null) "Create and plan costs" else "Save", {
             val t = (existing ?: Trip(name = "", country = country, currency = "", start = "", end = ""))
-                .copy(name = name.trim(), country = country, currency = currencyOf(country), start = start.toString(), end = end.toString(), groupId = groupId)
+                .copy(name = name.trim(), country = country, currency = currencyOf(country), start = start.toString(), end = end.toString())
             if (existing == null) { App.store.addTrip(t); nav.go(Screen.TripView(t.id)) } else App.store.saveTrip(t)
             onDismiss()
         }, Modifier.fillMaxWidth(), enabled = name.isNotBlank() && !end.isBefore(start))
@@ -156,7 +151,6 @@ fun TripScreen(st: AppState, id: String) {
             list.forEach { TxnRow(st, it) }
             PixelButton("Trip expense", { nav.go(Screen.Expense(tripId = id)) }, glyph = Glyphs.plus)
         }
-        t.groupId?.let { gid -> PixelButton("Group balances", { nav.go(Screen.GroupView(gid)) }, Modifier.fillMaxWidth(), kind = Kind.SECONDARY) }
         PixelButton("Edit trip", { editing = true }, Modifier.fillMaxWidth(), kind = Kind.SECONDARY)
         PixelButton("Delete trip and its expenses", { App.store.deleteTrip(id); nav.back() }, Modifier.fillMaxWidth(), kind = Kind.DANGER)
     }

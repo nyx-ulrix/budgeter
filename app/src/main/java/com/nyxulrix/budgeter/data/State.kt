@@ -6,7 +6,11 @@ import java.util.UUID
 
 fun newId(): String = UUID.randomUUID().toString()
 
+/** P1, the phone's owner. Other people in a split are "p2", "p3"... and shown as P2, P3. */
 const val ME = "me"
+
+fun personId(n: Int) = if (n == 1) ME else "p$n"
+fun personLabel(id: String) = if (id == ME) "P1" else id.uppercase()
 
 val DEFAULT_CATEGORIES = listOf("Food", "Transport", "Groceries", "Shopping", "Bills", "Fun", "Health", "Other")
 
@@ -17,11 +21,11 @@ data class AppState(
     val plans: Map<String, Plan> = emptyMap(),        // by period key "2026-10"
     val txns: List<Txn> = emptyList(),
     val planned: List<Planned> = emptyList(),
-    val people: List<Person> = listOf(Person(ME, "Me")),
-    val groups: List<Group> = emptyList(),
-    val settlements: List<Settlement> = emptyList(),
     val trips: List<Trip> = emptyList(),
     val categories: List<String> = DEFAULT_CATEGORIES,
+    // Categories spread over the month (groceries, bills): they lower the month's money, and so every remaining
+    // day's budget, but don't use up today's budget.
+    val monthlyCategories: Set<String> = setOf("Groceries", "Bills"),
     val sync: SyncInfo = SyncInfo(),
 )
 
@@ -42,6 +46,7 @@ data class Plan(
     val income: Long = 0,
     val lines: List<Line> = emptyList(),
     val caps: Map<String, Long> = emptyMap(),         // optional per-category caps
+    val budget: Long? = null,                         // what I plan to spend this month; null = all that's available
 )
 
 @Serializable
@@ -69,7 +74,7 @@ data class TxnItem(
     val price: Long,               // printed line price
     val qty: Int = 1,
     val cost: Long = price,        // price + share of printed tax / service charge / discount
-    val owners: Set<String> = emptySet(),  // person ids sharing this item; empty = everyone in the split
+    val owners: Set<String> = emptySet(),  // P ids sharing this item; empty = everyone in the split
     val category: String? = null,
 )
 
@@ -92,10 +97,10 @@ data class Txn(
     val taxIncluded: Boolean = false,
     val payer: String = ME,
     val method: SplitMethod = SplitMethod.EQUAL,
-    val shares: Map<String, Long> = emptyMap(),        // person id → share in home minor units; empty = all mine
+    val people: Int = 1,                               // split between P1 (me) .. P[people]
+    val shares: Map<String, Long> = emptyMap(),        // P id → share in home minor units; empty = all mine
     val splitInput: Map<String, Long> = emptyMap(),    // what the user typed per person (percent bp, weights, amounts)
     val items: List<TxnItem> = emptyList(),
-    val groupId: String? = null,
     val tripId: String? = null,
     val foreign: Foreign? = null,
     val plannedId: String? = null,
@@ -123,22 +128,6 @@ data class Planned(
     val status: PlannedStatus = PlannedStatus.OPEN,
 )
 
-@Serializable
-data class Person(val id: String = newId(), val name: String)
-
-@Serializable
-data class Group(val id: String = newId(), val name: String, val members: List<String> = listOf(ME))
-
-@Serializable
-data class Settlement(
-    val id: String = newId(),
-    val groupId: String,
-    val from: String,
-    val to: String,
-    val amount: Long,
-    val date: String,
-)
-
 /**
  * A trip you budget for: planned costs set the target, and money is set aside each month until it starts.
  * Trip spending then comes out of what was set aside, never the daily budget.
@@ -151,7 +140,6 @@ data class Trip(
     val currency: String,
     val start: String,
     val end: String,
-    val groupId: String? = null,
     val costs: List<TripCost> = emptyList(),
     val monthly: Long = 0,                 // set aside each period from [monthlyFrom] until the trip starts
     val monthlyFrom: String? = null,       // period key the current monthly amount began

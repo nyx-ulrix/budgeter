@@ -49,15 +49,13 @@ enum class Tab(val label: String, val glyph: List<String>) {
     HOME("Home", Glyphs.home),
     TXNS("Txns", Glyphs.list),
     BUDGET("Budget", Glyphs.coin),
-    GROUPS("Groups", Glyphs.people),
     PROFILE("Profile", Glyphs.person),
 }
 
 /** Screens pushed over the tabs. */
 sealed interface Screen {
-    data class Expense(val id: String? = null, val receipt: ParsedReceipt? = null, val ocrText: String? = null, val groupId: String? = null, val tripId: String? = null) : Screen
+    data class Expense(val id: String? = null, val receipt: ParsedReceipt? = null, val ocrText: String? = null, val tripId: String? = null) : Screen
     data class PlannedEdit(val id: String? = null) : Screen
-    data class GroupView(val id: String) : Screen
     data class TripView(val id: String) : Screen
     data object Ai : Screen
     data object Sync : Screen
@@ -92,7 +90,7 @@ fun Root(nav: Nav) {
         LaunchedEffect(nav.pendingScan) { if (nav.pendingScan) { nav.pendingScan = false; scanner.camera() } }
         val compact = isCompact()
         val top = nav.stack.lastOrNull()
-        val plainAdd = top is Screen.Expense && top.id == null && top.receipt == null && top.groupId == null && top.tripId == null
+        val plainAdd = top is Screen.Expense && top.id == null && top.receipt == null && top.tripId == null
         CompositionLocalProvider(LocalNav provides nav, LocalScanner provides scanner) {
             // Flip-phone cover screen: concise view only; scanned receipts still open the full editor.
             if (compact && (top == null || plainAdd)) CompactScreen(st, adding = plainAdd) { if (plainAdd) nav.back() }
@@ -105,12 +103,10 @@ fun Root(nav: Nav) {
                             Tab.HOME -> HomeScreen(st)
                             Tab.TXNS -> TxnsScreen(st)
                             Tab.BUDGET -> BudgetScreen(st)
-                            Tab.GROUPS -> GroupsScreen(st)
                             Tab.PROFILE -> ProfileScreen(st)
                         }
                         is Screen.Expense -> ExpenseScreen(st, top)
                         is Screen.PlannedEdit -> PlannedScreen(st, top.id)
-                        is Screen.GroupView -> GroupScreen(st, top.id)
                         is Screen.TripView -> TripScreen(st, top.id)
                         Screen.Ai -> AiScreen()
                         Screen.Sync -> SyncScreen(st)

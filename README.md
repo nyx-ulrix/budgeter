@@ -23,19 +23,6 @@ It runs the tests, tags the commit and pushes. GitHub Actions ([release.yml](.gi
 
 Every build, from this PC or from GitHub, is signed with the same release key (`keystore.properties`, not in git; the key file lives in `C:\Users\malco\.android\`). Android only installs an update signed with that key, so **keep a backup of the key file and `keystore.properties`**. Losing them means users must uninstall to get new versions.
 
-## Test server
-
-```bash
-node tools/test-server.js 0.9.0
-```
-
-Or start **test-server** from the Claude app's preview menu ([.claude/launch.json](.claude/launch.json)). It runs on port 8787 and does two things:
-
-- **Fake GitHub releases.** With a version number it builds that version and offers it as the latest release, so you can test updating without publishing. In a debug build: Profile → Updates → Test server, then Check for updates. Use `http://10.0.2.2:8787` on the emulator, or `http://localhost:8787` on a phone plugged in by USB (the server forwards the port automatically).
-- **Fake AI provider.** Profile → AI → Custom, base URL `http://localhost:8787/v1` (or `http://10.0.2.2:8787/v1` on the emulator), any key, model `test`. Every receipt comes back as [tools/test-receipt.json](tools/test-receipt.json).
-
-Test against the emulator rather than your own phone. A test version like 0.9.0 is newer than real releases, so a phone holding it won't take real updates until it's uninstalled.
-
 ## Tests
 
 ```bash

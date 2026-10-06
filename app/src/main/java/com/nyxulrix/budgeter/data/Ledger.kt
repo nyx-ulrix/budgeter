@@ -20,18 +20,25 @@ val AppState.liveTxns: List<Txn> get() = txns.filter { !it.deleted }
 
 /**
  * The plan for a period. A period nobody has edited yet inherits the latest earlier plan's income, fixed costs,
- * savings and caps (not extras, reservations or trip funds, which are one-offs).
+ * savings, caps and monthly budget (not extras, reservations or trip funds, which are one-offs).
  */
 fun AppState.planFor(key: String): Plan = plans[key] ?: plans.filterKeys { it < key }.maxByOrNull { it.key }?.value?.let { p ->
-    Plan(p.income, p.lines.filter { it.kind == LineKind.FIXED || it.kind == LineKind.SAVINGS }, p.caps)
+    Plan(p.income, p.lines.filter { it.kind == LineKind.FIXED || it.kind == LineKind.SAVINGS }, p.caps, p.budget)
 } ?: Plan()
 
-/** Savings set aside from the first planned month through [key], counting months that inherit their plan. */
-fun AppState.savedToDate(key: String): Long {
+/**
+ * What a finished month saved: everything earned that wasn't spent. Unspent budget and money never budgeted both
+ * count; an overspent month counts negative. Trip funds and reservations aren't savings, they're already earmarked.
+ */
+fun AppState.monthSaved(key: String): Long =
+    planFor(key).total(LineKind.SAVINGS) + available(key) - spent(Period.ofKey(key, startDay))
+
+/** Savings from the first month through [key], counting only months that have ended by [today]. */
+fun AppState.savedToDate(key: String, today: LocalDate = LocalDate.now()): Long {
     val first = plans.keys.minOrNull() ?: return 0
     var p = Period.ofKey(first, startDay)
     var sum = 0L
-    while (p.key <= key) { sum += planFor(p.key).total(LineKind.SAVINGS); p = p.next() }
+    while (p.key <= key && !p.end.isAfter(today)) { sum += monthSaved(p.key); p = p.next() }
     return sum
 }
 
@@ -40,8 +47,11 @@ fun Plan.total(kind: LineKind): Long = lines.filter { it.kind == kind }.sumOf { 
 /** Income + extra − fixed − savings − reservations − one-off trip set-asides (not monthly trip savings). */
 val Plan.spendable: Long get() = income + lines.sumOf { if (it.kind.adds) it.amount else -it.amount }
 
-/** What's spendable in a period after everything is set aside, including monthly trip savings. */
-fun AppState.spendable(key: String): Long = planFor(key).spendable - tripMonthlyTotal(key)
+/** Money left after fixed costs and everything set aside, including monthly trip savings. */
+fun AppState.available(key: String): Long = planFor(key).spendable - tripMonthlyTotal(key)
+
+/** What I can spend this month: my chosen monthly budget, or everything available if I haven't set one. */
+fun AppState.spendable(key: String): Long = planFor(key).budget ?: available(key)
 
 private fun Txn.inBudget(p: Period) = !deleted && tripId == null && LocalDate.parse(date) in p
 
@@ -53,20 +63,39 @@ data class Snapshot(
     val spent: Long,
     val day: Day,
     val pace: Pace,
+    val fixed: Long = 0,
+    val categories: Map<String, Long> = emptyMap(),
 ) {
     val left: Long get() = spendable - spent
+    val over: Boolean get() = spent > spendable
     val fraction: Float get() = if (spendable <= 0) 1f else (spent.toFloat() / spendable).coerceIn(0f, 1f)
 }
 
-/** Home-screen numbers for [date]. */
+/**
+ * The part of a transaction that uses up the day's budget: everything except monthly categories.
+ * Itemised bills with per-item categories are split across them.
+ */
+fun AppState.dailyImpact(t: Txn): Long =
+    if (t.items.any { it.category != null })
+        allocate(t.budgetImpact, t.items.map { it.cost.coerceAtLeast(0) }).withIndex()
+            .filter { (i, _) -> (t.items[i].category ?: t.category) !in monthlyCategories }.sumOf { it.value }
+    else if (t.category in monthlyCategories) 0 else t.budgetImpact
+
+/**
+ * Home-screen numbers for [date]. Monthly-category spending (groceries…) made today lowers today's budget
+ * through the month's remaining money, like any earlier day's spending, but isn't counted as spent today.
+ */
 fun AppState.snapshot(date: LocalDate = LocalDate.now()): Snapshot {
     val p = periodOf(date)
     val spendable = spendable(p.key)
     val inP = txns.filter { it.inBudget(p) }
     val before = inP.filter { LocalDate.parse(it.date).isBefore(date) }.sumOf { it.budgetImpact }
-    val onDay = inP.filter { LocalDate.parse(it.date) == date }.sumOf { it.budgetImpact }
+    val onDay = inP.filter { LocalDate.parse(it.date) == date }
+    val dailyToday = onDay.sumOf { dailyImpact(it) }
+    val monthlyToday = onDay.sumOf { it.budgetImpact } - dailyToday
     val spent = inP.sumOf { it.budgetImpact }
-    return Snapshot(p, spendable, spent, today(spendable, before, onDay, date, p), pace(spendable, spent, date, p))
+    return Snapshot(p, spendable, spent, today(spendable, before + monthlyToday, dailyToday, date, p), pace(spendable, spent, date, p),
+        planFor(p.key).total(LineKind.FIXED), byCategory(p))
 }
 
 /** Budget-impact per category in a period. Itemised bills with per-item categories are split across them. */
@@ -139,23 +168,3 @@ fun AppState.tripSpent(tripId: String): Long = liveTxns.filter { it.tripId == tr
 fun AppState.activeTrip(date: LocalDate = LocalDate.now()): Trip? = trips.firstOrNull {
     !date.isBefore(LocalDate.parse(it.start)) && !date.isAfter(LocalDate.parse(it.end))
 }
-
-// Groups
-
-/** Net balance per person in a group: positive means they are owed money. */
-fun AppState.groupNet(groupId: String): Map<String, Long> {
-    val net = linkedMapOf<String, Long>()
-    groups.firstOrNull { it.id == groupId }?.members?.forEach { net[it] = 0 }
-    for (t in liveTxns.filter { it.groupId == groupId }) {
-        net[t.payer] = (net[t.payer] ?: 0) + t.total
-        val shares = t.shares.ifEmpty { mapOf(t.payer to t.total) }
-        shares.forEach { (who, amt) -> net[who] = (net[who] ?: 0) - amt }
-    }
-    for (s in settlements.filter { it.groupId == groupId }) {
-        net[s.from] = (net[s.from] ?: 0) + s.amount
-        net[s.to] = (net[s.to] ?: 0) - s.amount
-    }
-    return net
-}
-
-fun AppState.personName(id: String): String = people.firstOrNull { it.id == id }?.name ?: "?"

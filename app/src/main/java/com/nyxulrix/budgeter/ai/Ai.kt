@@ -166,9 +166,9 @@ Rules:
         }.getOrElse { throw Exception("${p.label} sent an unexpected reply.") }
     }
 
-    /** Model ids the provider offers, for the model picker. */
-    suspend fun models(ctx: Context, p: Provider): List<String> = withContext(Dispatchers.IO) {
-        val key = Secrets.get(ctx, "key_${p.id}") ?: return@withContext emptyList()
+    /** Model ids the provider offers, for the model dropdown. Uses [typedKey], else the saved key of [p]. */
+    suspend fun models(ctx: Context, p: Provider, typedKey: String? = null): List<String> = withContext(Dispatchers.IO) {
+        val key = typedKey?.trim()?.ifBlank { null } ?: Secrets.get(ctx, "key_${p.id}") ?: return@withContext emptyList()
         val res = http("GET", p.base.trimEnd('/') + "/models", key, p, null)
         runCatching {
             (json.parseToJsonElement(res).jsonObject["data"]!!.jsonArray).map { it.jsonObject["id"]!!.jsonPrimitive.content.removePrefix("models/") }.sorted()

@@ -29,7 +29,7 @@ import com.nyxulrix.budgeter.data.PlannedStatus
 import com.nyxulrix.budgeter.data.activeTrip
 import com.nyxulrix.budgeter.data.byCategory
 import com.nyxulrix.budgeter.data.currency
-import com.nyxulrix.budgeter.data.groupNet
+import com.nyxulrix.budgeter.data.dailyImpact
 import com.nyxulrix.budgeter.data.liveTxns
 import com.nyxulrix.budgeter.data.ME
 import com.nyxulrix.budgeter.data.planFor
@@ -74,14 +74,14 @@ fun HomeScreen(st: AppState) {
             Sparkline(st, now)
         }
 
-        Window("This month") {
+        Window("This month", header = if (snap.over) Px.red else Px.orange) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("${money(snap.spent, cur)} / ${money(snap.spendable, cur)}", style = Type.body, modifier = Modifier.weight(1f))
-                Chip("${paceSymbol(snap.pace)} ${snap.pace.label}", paceColor(snap.pace))
+                if (snap.over) Chip("✖ Over budget", Px.red) else Chip("${paceSymbol(snap.pace)} ${snap.pace.label}", paceColor(snap.pace))
             }
-            PixelProgress(snap.fraction, color = paceColor(snap.pace))
+            MonthBar(st, snap)
             val daysLeft = ChronoUnit.DAYS.between(now, snap.period.end)
-            Small("${money(snap.left, cur)} left · $daysLeft days to go · resets ${snap.period.end}")
+            Small((if (snap.over) "${money(-snap.left, cur)} over" else "${money(snap.left, cur)} left") + " · $daysLeft days to go · resets ${snap.period.end}")
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -96,7 +96,7 @@ fun HomeScreen(st: AppState) {
         // Secondary, folded.
         st.activeTrip(now)?.let { trip ->
             val left = st.tripFund(trip.id) - st.tripSpent(trip.id)
-            FoldWindow("Trip: ${trip.name}", open = true) {
+            FoldWindow("Trip: ${trip.name}") {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Art(R.drawable.icon_airplane, 24.dp)
                     Body("${money(left, cur)} left in trip fund", Modifier.weight(1f), if (left < 0) Px.red else Px.brown)
@@ -118,27 +118,6 @@ fun HomeScreen(st: AppState) {
             recent.forEach { TxnRow(st, it) }
         }
 
-        // Hidden by default.
-        FoldWindow("Categories") {
-            val caps = st.planFor(snap.period.key).caps
-            val cats = st.byCategory(snap.period)
-            if (cats.isEmpty()) Small("Nothing spent this month.")
-            cats.entries.sortedByDescending { it.value }.forEach { (c, v) ->
-                val cap = caps[c]
-                KeyValue(c, money(v, cur) + (cap?.let { " / " + money(it, cur) } ?: ""), if (cap != null && v > cap) Px.red else Px.brown)
-                if (cap != null && cap > 0) PixelProgress(v.toFloat() / cap, color = if (v > cap) Px.red else Px.blue)
-            }
-        }
-        if (st.groups.isNotEmpty()) FoldWindow("Group balances") {
-            st.groups.forEach { g ->
-                val mine = st.groupNet(g.id)[ME] ?: 0
-                KeyValue(g.name, when {
-                    mine > 0 -> "owed ${money(mine, cur)}"
-                    mine < 0 -> "you owe ${money(-mine, cur)}"
-                    else -> "settled"
-                }, if (mine < 0) Px.red else Px.brown)
-            }
-        }
         Small("Savings totals are kept off this screen. See Budget → Savings.")
     }
 
@@ -149,7 +128,7 @@ fun HomeScreen(st: AppState) {
 @Composable
 private fun Sparkline(st: AppState, today: LocalDate) {
     val days = (2 downTo 0).map { today.minusDays(it.toLong()) }
-    val spent = days.map { d -> st.liveTxns.filter { it.tripId == null && it.date == d.toString() }.sumOf { it.budgetImpact } }
+    val spent = days.map { d -> st.liveTxns.filter { it.tripId == null && it.date == d.toString() }.sumOf { st.dailyImpact(it) } }
     val max = spent.max().coerceAtLeast(1)
     Row(
         Modifier.semantics { contentDescription = "Last three days: " + spent.joinToString { money(it, st.currency) } },

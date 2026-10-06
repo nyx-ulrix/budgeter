@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -36,11 +37,13 @@ import com.nyxulrix.budgeter.ai.preset
 import com.nyxulrix.budgeter.data.AppState
 import com.nyxulrix.budgeter.data.countryName
 import com.nyxulrix.budgeter.data.setCategories
+import com.nyxulrix.budgeter.data.setDaily
 import com.nyxulrix.budgeter.data.setSync
 import com.nyxulrix.budgeter.data.snapshot
 import com.nyxulrix.budgeter.sync.SyncWorker
 import com.nyxulrix.budgeter.sync.authRequest
 import com.nyxulrix.budgeter.sync.enableSync
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.DateFormat
 import java.util.Date
@@ -84,17 +87,20 @@ private fun CategoriesWindow(st: AppState) {
     var name by remember { mutableStateOf("") }
     FoldWindow("Categories") {
         st.categories.forEach { c ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            val daily = c !in st.monthlyCategories
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Body(c, Modifier.weight(1f))
+                Choice(listOf(true, false), daily, { if (it) "Daily" else "Monthly" }, { App.store.setDaily(c, it) })
                 if (st.categories.size > 1) CloseButton { App.store.setCategories(st.categories - c) }
             }
         }
+        Small("Daily: comes out of today's budget. Monthly (groceries, bills): spread over the month. It lowers what's left for the month, so every remaining day's budget drops a little, but today isn't marked as overspent.")
         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             PixelField(name, { name = it }, "New category", Modifier.weight(1f))
             PixelButton("+", { App.store.setCategories(st.categories + name.trim()); name = "" },
                 enabled = name.isNotBlank() && st.categories.none { it.equals(name.trim(), true) })
         }
-        Small("Removing a category keeps old expenses as they are.")
+        Small("Removing a category keeps old expenses as they are. Its colour shows in the month bar.")
     }
 }
 
@@ -178,7 +184,24 @@ private fun ProviderForm(presetId: String, existing: Provider?, onSaved: () -> U
     var base by remember(presetId) { mutableStateOf(existing?.base ?: pr.base) }
     var model by remember(presetId) { mutableStateOf(existing?.model ?: pr.model) }
     var key by remember(presetId) { mutableStateOf("") }
-    var models by remember { mutableStateOf<List<String>>(emptyList()) }
+    var models by remember(presetId) { mutableStateOf(listOf(model).filter { it.isNotBlank() }) }
+    var loading by remember { mutableStateOf(false) }
+    var picking by remember { mutableStateOf(false) }
+    // Fetch the provider's models once there's a key to ask with (typed, or already saved). Restarts as you type,
+    // which doubles as a debounce.
+    LaunchedEffect(presetId, base, key) {
+        if (key.isBlank() && existing == null) return@LaunchedEffect
+        if (!Ai.safeBase(base.trim())) return@LaunchedEffect
+        delay(700)
+        loading = true
+        val probe = (existing ?: Provider(preset = presetId, label = "", base = "", model = "")).copy(base = base.trim())
+        val list = runCatching { Ai.models(ctx, probe, key) }.getOrDefault(emptyList())
+        loading = false
+        if (list.isNotEmpty()) {
+            models = list
+            if (model !in list) model = list.firstOrNull { it == pr.model } ?: list.first()
+        }
+    }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         PixelField(label, { label = it }, "Name it", placeholder = "Claude (work)")
         PixelField(key, { key = it }, if (existing != null) "New key (blank keeps the old one)" else "API key", keyboard = KeyboardType.Password)
@@ -186,11 +209,13 @@ private fun ProviderForm(presetId: String, existing: Provider?, onSaved: () -> U
             ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(pr.keyUrl)))
         }, kind = Kind.SECONDARY)
         if (presetId == "custom") PixelField(base, { base = it }, "Base URL", placeholder = "http://192.168.1.5:11434/v1", keyboard = KeyboardType.Uri)
-        PixelField(model, { model = it }, "Model")
-        if (existing != null) PixelButton("List models", {
-            scope.launch { models = runCatching { Ai.models(ctx, existing) }.getOrDefault(emptyList()); if (models.isEmpty()) Toast.makeText(ctx, "No model list available.", Toast.LENGTH_SHORT).show() }
-        }, kind = Kind.SECONDARY)
-        if (models.isNotEmpty()) Choice(models.take(40), model, { it }, { model = it })
+        Label("Model")
+        PickerBox(model.ifBlank { "Pick a model" }) { picking = true }
+        Small(when {
+            loading -> "Loading models…"
+            key.isBlank() && existing == null -> "Enter your key to load the models you can use."
+            else -> "${models.size} model${if (models.size == 1) "" else "s"} available."
+        })
         if (base.isNotBlank() && !Ai.safeBase(base.trim())) Small("Use https, or http only for this phone or your home network.", color = Px.red)
         PixelButton("Save", {
             runCatching {
@@ -199,6 +224,7 @@ private fun ProviderForm(presetId: String, existing: Provider?, onSaved: () -> U
         }, Modifier.fillMaxWidth(), enabled = label.isNotBlank() && model.isNotBlank() && Ai.safeBase(base.trim()) && (existing != null || key.isNotBlank()))
         if (existing != null) PixelButton("Remove", { Ai.remove(ctx, existing.id); onSaved() }, Modifier.fillMaxWidth(), kind = Kind.DANGER)
     }
+    if (picking) SearchPicker("Model", models.map { it to it }, { picking = false }, allowCustom = true) { model = it; picking = false }
 }
 
 @Composable

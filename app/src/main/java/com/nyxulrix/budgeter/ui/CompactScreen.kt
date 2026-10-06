@@ -71,9 +71,9 @@ fun CompactScreen(st: AppState, adding: Boolean = false, onDone: () -> Unit = {}
         } else {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("${(snap.fraction * 100).toInt()}% of month", style = Type.small, modifier = Modifier.weight(1f))
-                Chip("${paceSymbol(snap.pace)} ${snap.pace.label}", paceColor(snap.pace))
+                if (snap.over) Chip("✖ Over budget", Px.red) else Chip("${paceSymbol(snap.pace)} ${snap.pace.label}", paceColor(snap.pace))
             }
-            PixelProgress(snap.fraction, color = paceColor(snap.pace), blocks = 10)
+            MonthBar(st, snap, legend = false)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PixelButton("Add", { add = true }, Modifier.weight(1f), glyph = Glyphs.plus)
                 PixelButton("Scan", { scanner.camera() }, Modifier.weight(1f), kind = Kind.SECONDARY, glyph = Glyphs.camera)

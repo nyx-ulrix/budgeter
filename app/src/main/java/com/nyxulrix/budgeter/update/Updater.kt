@@ -33,10 +33,6 @@ object Updater {
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences("update", Context.MODE_PRIVATE)
 
-    /** GitHub's API, or the local test server in debug builds when one is set in Profile → Updates. */
-    fun server(ctx: Context): String = prefs(ctx).getString("server", null)?.takeIf { BuildConfig.DEBUG && it.isNotBlank() } ?: "https://api.github.com"
-    fun testServer(ctx: Context): String = prefs(ctx).getString("server", "").orEmpty()
-    fun setTestServer(ctx: Context, url: String) = prefs(ctx).edit().putString("server", url.trim().trimEnd('/')).putLong("checked", 0).apply()
 
     /** True when [a] is a higher version than [b] ("0.10.0" > "0.9.3"). */
     fun newer(a: String, b: String): Boolean {
@@ -54,7 +50,7 @@ object Updater {
         val p = prefs(ctx)
         if (!force && System.currentTimeMillis() - p.getLong("checked", 0) < 6 * 3600_000L) return@withContext available.value
         runCatching {
-            val c = URL("${server(ctx)}/repos/${BuildConfig.UPDATE_REPO}/releases/latest").openConnection() as HttpURLConnection
+            val c = URL("https://api.github.com/repos/${BuildConfig.UPDATE_REPO}/releases/latest").openConnection() as HttpURLConnection
             c.connectTimeout = 10_000; c.readTimeout = 15_000
             c.setRequestProperty("Accept", "application/vnd.github+json")
             c.setRequestProperty("User-Agent", "Budgeter/${BuildConfig.VERSION_NAME}")

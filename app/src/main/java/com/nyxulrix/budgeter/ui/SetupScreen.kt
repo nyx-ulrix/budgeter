@@ -112,10 +112,13 @@ fun PickerBox(text: String, onClick: () -> Unit) {
 
 /** Searchable list in a dialog. [options] are (value, label). */
 @Composable
-fun SearchPicker(title: String, options: List<Pair<String, String>>, onDismiss: () -> Unit, onPick: (String) -> Unit) {
+fun SearchPicker(title: String, options: List<Pair<String, String>>, onDismiss: () -> Unit, allowCustom: Boolean = false, onPick: (String) -> Unit) {
     var q by remember { mutableStateOf("") }
     PixelDialog(title, onDismiss) {
         PixelField(q, { q = it }, "", placeholder = "Search")
+        if (allowCustom && q.isNotBlank() && options.none { it.first == q.trim() }) Box(
+            Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable { onPick(q.trim()) }.padding(horizontal = 4.dp, vertical = 8.dp),
+        ) { Body("Use \"${q.trim()}\"") }
         options.filter { q.isBlank() || it.second.contains(q, ignoreCase = true) }.take(60).forEach { (value, label) ->
             Box(
                 Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable { onPick(value) }.padding(horizontal = 4.dp, vertical = 8.dp),

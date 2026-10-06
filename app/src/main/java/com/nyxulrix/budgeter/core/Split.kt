@@ -42,20 +42,3 @@ fun itemShares(costs: List<Long>, owners: List<Set<Int>>, people: Int): List<Lon
     }
     return out.toList()
 }
-
-data class Transfer(val from: String, val to: String, val amount: Long)
-
-/** Fewest-ish transfers that settle [net] balances (positive = is owed money). Greedy largest-first. */
-fun settle(net: Map<String, Long>): List<Transfer> {
-    val owed = net.filterValues { it > 0 }.toMutableMap()
-    val owes = net.filterValues { it < 0 }.mapValues { -it.value }.toMutableMap()
-    val out = mutableListOf<Transfer>()
-    while (owed.isNotEmpty() && owes.isNotEmpty()) {
-        val c = owed.maxBy { it.value }; val d = owes.maxBy { it.value }
-        val amt = minOf(c.value, d.value)
-        out += Transfer(d.key, c.key, amt)
-        if (c.value == amt) owed.remove(c.key) else owed[c.key] = c.value - amt
-        if (d.value == amt) owes.remove(d.key) else owes[d.key] = d.value - amt
-    }
-    return out
-}

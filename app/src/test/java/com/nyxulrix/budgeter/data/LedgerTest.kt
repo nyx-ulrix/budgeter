@@ -49,20 +49,6 @@ class LedgerTest {
         assertEquals(0L, fully.budgetImpact)
     }
 
-    @Test fun groupBalances() {
-        val st = AppState(
-            setup,
-            groups = listOf(Group("g", "Flat", listOf(ME, "a", "b"))),
-            txns = listOf(
-                Txn(date = "2026-10-01", total = 9_000, groupId = "g", payer = ME, method = SplitMethod.EQUAL,
-                    shares = mapOf(ME to 3_000, "a" to 3_000, "b" to 3_000)),
-                Txn(date = "2026-10-02", total = 3_000, groupId = "g", payer = "a", method = SplitMethod.EQUAL,
-                    shares = mapOf(ME to 1_000, "a" to 1_000, "b" to 1_000)),
-            ),
-            settlements = listOf(Settlement(groupId = "g", from = "b", to = ME, amount = 1_000, date = "2026-10-03")),
-        )
-        assertEquals(mapOf(ME to 4_000L, "a" to -1_000L, "b" to -3_000L), st.groupNet("g"))
-    }
 
     @Test fun tripFundAndSpend() {
         val st = AppState(
@@ -84,5 +70,39 @@ class LedgerTest {
         assertEquals(st, json.decodeFromString(AppState.serializer(), json.encodeToString(AppState.serializer(), st)))
         // Older files missing newer fields still load.
         assertEquals(AppState(), json.decodeFromString(AppState.serializer(), "{}"))
+    }
+
+    @Test fun unspentMoneyBecomesSavings() {
+        val st = AppState(
+            setup,
+            plans = mapOf("2026-09" to Plan(300_000, listOf(Line(kind = LineKind.FIXED, name = "Rent", amount = 100_000)), budget = 150_000)),
+            txns = listOf(Txn(date = "2026-09-10", total = 120_000)),
+        )
+        assertEquals(200_000L, st.available("2026-09"))      // income − fixed
+        assertEquals(150_000L, st.spendable("2026-09"))      // the budget I chose
+        assertEquals(80_000L, st.monthSaved("2026-09"))      // 200k available − 120k spent
+        assertEquals(150_000L, st.spendable("2026-10"))      // budget carries over
+        assertEquals(80_000L, st.savedToDate("2026-10", LocalDate.of(2026, 10, 15)))  // only finished months
+        assertEquals(0L, st.savedToDate("2026-09", LocalDate.of(2026, 9, 20)))
+        val over = st.copy(txns = listOf(Txn(date = "2026-09-10", total = 250_000)))
+        assertEquals(-50_000L, over.monthSaved("2026-09"))   // overspend comes out of savings
+        assertEquals(true, over.snapshot(LocalDate.of(2026, 9, 20)).over)
+        val noBudget = st.copy(plans = mapOf("2026-09" to Plan(300_000)))
+        assertEquals(300_000L, noBudget.spendable("2026-09"))  // no budget set: everything available
+    }
+
+    @Test fun monthlyCategoriesLowerTheMonthNotToday() {
+        val oct = Plan(310_000)
+        val base = AppState(setup, plans = mapOf("2026-10" to oct))
+        val groceries = base.copy(txns = listOf(Txn(date = "2026-10-05", total = 27_000, category = "Groceries")))
+        val s = groceries.snapshot(oct5)
+        assertEquals(0L, s.day.spent)                                  // not counted against today
+        assertEquals((310_000L - 27_000) / 27, s.day.budget)           // but today's budget already reflects it
+        assertEquals(27_000L, s.spent)                                 // and the month counts it
+        val food = base.copy(txns = listOf(Txn(date = "2026-10-05", total = 2_000, category = "Food")))
+        assertEquals(2_000L, food.snapshot(oct5).day.spent)
+        assertEquals(310_000L / 27, food.snapshot(oct5).day.budget)
+        val allDaily = groceries.copy(monthlyCategories = emptySet())
+        assertEquals(27_000L, allDaily.snapshot(oct5).day.spent)
     }
 }

@@ -40,7 +40,8 @@ fun today(spendable: Long, spentBeforeToday: Long, spentToday: Long, date: Local
     return Day(budget, spentToday)
 }
 
-enum class Pace(val label: String) { ON_TRACK("On track"), SLIGHTLY_OVER("Slightly over"), OVER("Over") }
+/** Spending speed against an even pace through the month. Being over the whole budget is separate ([Snapshot.over]). */
+enum class Pace(val label: String) { ON_TRACK("On track"), SLIGHTLY_OVER("A bit fast"), OVER("Too fast") }
 
 /** Compares spending with an even burn of [spendable] through the period, counting today as elapsed. */
 fun pace(spendable: Long, spent: Long, date: LocalDate, period: Period): Pace {

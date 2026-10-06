@@ -18,7 +18,8 @@ fun money(minor: Long, currency: String): String {
     val sym = runCatching { Currency.getInstance(currency).symbol }.getOrDefault(currency)
     val d = digits(currency)
     val fmt = java.text.DecimalFormat(if (d == 0) "#,##0" else "#,##0." + "0".repeat(d), java.text.DecimalFormatSymbols(java.util.Locale.US))
-    return (if (minor < 0) "-" else "") + sym + fmt.format(BigDecimal.valueOf(kotlin.math.abs(minor)).movePointLeft(d))
+    val gap = if (sym.last().isLetter()) " " else ""   // "SGD 12.50", "$12.50"
+    return (if (minor < 0) "-" else "") + sym + gap + fmt.format(BigDecimal.valueOf(kotlin.math.abs(minor)).movePointLeft(d))
 }
 
 /** User text → minor units. Accepts "12", "12.5", "1,234.50", "12,50". Null if not a number. */

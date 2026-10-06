@@ -39,7 +39,7 @@ fun TxnsScreen(st: AppState) {
         .filter { LocalDate.parse(it.date) in p }
         .filter { category == null || it.category == category || it.items.any { i -> i.category == category } }
         .filter { query.isBlank() || (it.merchant + " " + it.note + " " + it.items.joinToString { i -> i.name }).contains(query, true) }
-        .filter { when (scope) { "Budget" -> it.tripId == null; "Trips" -> it.tripId != null; "Groups" -> it.groupId != null; else -> true } }
+        .filter { when (scope) { "Budget" -> it.tripId == null; "Trips" -> it.tripId != null; "Split" -> it.people > 1 || it.shares.size > 1; else -> true } }
         .sortedByDescending { it.date + it.updatedAt.toString().padStart(15, '0') }
 
     Page {
@@ -50,9 +50,13 @@ fun TxnsScreen(st: AppState) {
                 PixelButton(">", { key = p.next().key }, kind = Kind.SECONDARY)
             }
             Small("${p.start} to ${p.end.minusDays(1)}")
+        }
+        val active = query.isNotBlank() || scope != "All" || category != null
+        FoldWindow(if (active) "Search & filters (on)" else "Search & filters", open = false) {
             PixelField(query, { query = it }, "", placeholder = "Search merchant, item, note")
-            Choice(listOf("All", "Budget", "Trips", "Groups"), scope, { it }, { scope = it })
+            Choice(listOf("All", "Budget", "Trips", "Split"), scope, { it }, { scope = it })
             Choice(listOf<String?>(null) + st.categories, category, { it ?: "Any category" }, { category = it })
+            if (active) PixelButton("Clear", { query = ""; scope = "All"; category = null }, kind = Kind.SECONDARY)
         }
         Window("${list.size} items") {
             if (list.isEmpty()) Small("Nothing here.")
@@ -85,7 +89,7 @@ fun TxnRow(st: AppState, t: Txn) {
             Body(t.merchant.ifBlank { t.category })
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Chip(t.category, Px.cream)
-                if (t.groupId != null) Chip(st.groups.firstOrNull { it.id == t.groupId }?.name ?: "Group", Px.blue)
+                if (t.people > 1 || t.shares.size > 1) Chip("Split ×${maxOf(t.people, t.shares.size)}", Px.blue)
             }
         }
         Column(horizontalAlignment = Alignment.End) {

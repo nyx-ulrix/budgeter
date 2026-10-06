@@ -37,6 +37,8 @@ import com.nyxulrix.budgeter.data.reserve
 import com.nyxulrix.budgeter.data.reserved
 import com.nyxulrix.budgeter.data.snapshot
 import com.nyxulrix.budgeter.data.spendable
+import com.nyxulrix.budgeter.data.available
+import com.nyxulrix.budgeter.data.monthSaved
 import com.nyxulrix.budgeter.data.savedToDate
 import com.nyxulrix.budgeter.data.tripMonthlyTotal
 import com.nyxulrix.budgeter.data.spent
@@ -64,18 +66,7 @@ fun BudgetScreen(st: AppState) {
             PixelButton(">", { key = p.next().key }, kind = Kind.SECONDARY)
         }
 
-        Window("Spendable.exe") {
-            KeyValue("Income", money(plan.income, cur))
-            KeyValue("+ Extra money", money(plan.total(LineKind.EXTRA), cur))
-            KeyValue("− Fixed costs", money(plan.total(LineKind.FIXED), cur))
-            KeyValue("− Savings", money(plan.total(LineKind.SAVINGS), cur))
-            KeyValue("− Reserved for planned", money(plan.total(LineKind.RESERVE), cur))
-            KeyValue("− Trip savings", money(plan.total(LineKind.TRIP_FUND) + st.tripMonthlyTotal(key), cur))
-            Rule()
-            val spendable = st.spendable(key)
-            KeyValue("= Spendable", money(spendable, cur), if (spendable < 0) Px.red else Px.brown)
-            KeyValue("Spent so far", money(st.spent(p), cur))
-        }
+        BudgetWindow(st, key, plan, cur)
 
         IncomeWindow(key, plan, cur)
         LinesWindow("Extra money", LineKind.EXTRA, key, plan, cur, "Added mid-month: gifts, side jobs, refunds.")
@@ -86,13 +77,16 @@ fun BudgetScreen(st: AppState) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Art(R.drawable.icon_money_bag, 28.dp)
                 Column1(Modifier.weight(1f)) {
-                    val allTime = st.savedToDate(key)
-                    KeyValue("This month", money(plan.total(LineKind.SAVINGS), cur))
-                    KeyValue("Saved to date", money(allTime, cur))
+                    KeyValue("Saved to date", money(st.savedToDate(key), cur))
+                    if (!p.end.isAfter(LocalDate.now())) KeyValue("Saved this month", money(st.monthSaved(key), cur))
+                    else {
+                        val wholeBudget = st.monthSaved(key) + st.spent(p) - maxOf(st.spent(p), st.spendable(key))
+                        KeyValue("If you stop spending now", money(st.monthSaved(key), cur))
+                        KeyValue("If you spend your budget", money(wholeBudget, cur), if (wholeBudget < 0) Px.red else Px.brown)
+                    }
                 }
             }
-            LineEditor(LineKind.SAVINGS, key, plan, cur)
-            Small("Set aside before your daily budget is worked out. Copied to next month.")
+            Small("Whatever you don't spend becomes savings when the month ends, including money you never budgeted. A month that goes over takes it back out.")
         }
 
         val setAside = plan.lines.filter { it.kind == LineKind.RESERVE || it.kind == LineKind.TRIP_FUND }
@@ -107,10 +101,6 @@ fun BudgetScreen(st: AppState) {
             Small("Removing one gives the money back to this month.")
         }
 
-        FoldWindow("Category caps") {
-            val spentBy = st.byCategory(p)
-            st.categories.forEach { c -> CapRow(c, key, plan, cur, spentBy[c] ?: 0) }
-        }
 
         TripsWindow(st)
 
@@ -136,6 +126,30 @@ fun BudgetScreen(st: AppState) {
 private fun Column1(modifier: Modifier = Modifier, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) =
     androidx.compose.foundation.layout.Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp), content = content)
 
+/** The monthly budget setting. Shows only what's spendable; the earnings behind it are in the windows below. */
+@Composable
+private fun BudgetWindow(st: AppState, key: String, plan: Plan, cur: String) {
+    val p = Period.ofKey(key, st.startDay)
+    val available = st.available(key)
+    val spendable = st.spendable(key)
+    val spent = st.spent(p)
+    var text by remember(key, plan.budget) { mutableStateOf(plan.budget?.let { plain(it, cur) } ?: "") }
+    val v = if (text.isBlank()) null else parseMoney(text, cur)
+    Window("Spendable.exe", header = if (spent > spendable) Px.red else Px.orange) {
+        Label("Spendable this month")
+        Text(money(spendable, cur), style = Type.hero, color = if (spendable < 0 || spent > spendable) Px.red else Px.brown)
+        Small("Spent so far ${money(spent, cur)}" + if (spent > spendable) " · over by ${money(spent - spendable, cur)}" else "")
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PixelField(text, { text = it }, "Monthly budget (what you plan to spend)", Modifier.weight(1f), keyboard = KeyboardType.Decimal,
+                placeholder = plain(available.coerceAtLeast(0), cur), error = if (text.isNotBlank() && v == null) "Not a number" else null)
+            PixelButton("Set", { App.store.editPlan(key) { it.copy(budget = v) } }, enabled = v != null && v >= 0 && v != plan.budget)
+        }
+        if (v != null && v > available) Small("That's more than the ${money(available, cur)} left after fixed costs and set-asides.", color = Px.red)
+        if (plan.budget != null) PixelButton("Use everything available", { App.store.editPlan(key) { it.copy(budget = null) } }, kind = Kind.SECONDARY)
+        Small("Carries over to the next months until you change it. Whatever isn't spent becomes savings.")
+    }
+}
+
 @Composable
 private fun IncomeWindow(key: String, plan: Plan, cur: String) {
     var text by remember(key, plan.income) { mutableStateOf(plain(plan.income, cur)) }
@@ -152,7 +166,7 @@ private fun IncomeWindow(key: String, plan: Plan, cur: String) {
 
 @Composable
 private fun LinesWindow(title: String, kind: LineKind, key: String, plan: Plan, cur: String, hint: String) {
-    FoldWindow(title, open = plan.lines.any { it.kind == kind }) {
+    FoldWindow(title) {
         LineEditor(kind, key, plan, cur)
         Small(hint)
     }
@@ -181,19 +195,6 @@ private fun LineEditor(kind: LineKind, key: String, plan: Plan, cur: String) {
     }
 }
 
-@Composable
-private fun CapRow(category: String, key: String, plan: Plan, cur: String, spent: Long) {
-    val cap = plan.caps[category]
-    var text by remember(key, cap) { mutableStateOf(cap?.let { plain(it, cur) } ?: "") }
-    val v = if (text.isBlank()) null else parseMoney(text, cur)
-    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        PixelField(text, { text = it }, "$category · spent ${money(spent, cur)}", Modifier.weight(1f), keyboard = KeyboardType.Decimal, placeholder = "No cap")
-        PixelButton("Set", {
-            App.store.editPlan(key) { p -> p.copy(caps = if (v == null) p.caps - category else p.caps + (category to v)) }
-        }, kind = Kind.SECONDARY, enabled = v != cap && (text.isBlank() || v != null))
-    }
-    if (cap != null && cap > 0) PixelProgress(spent.toFloat() / cap, color = if (spent > cap) Px.red else Px.blue)
-}
 
 /** Reserve part of a planned item's price from this month. Shows the hit to today's budget. */
 @Composable

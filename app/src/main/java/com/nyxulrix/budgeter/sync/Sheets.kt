@@ -20,7 +20,7 @@ import com.nyxulrix.budgeter.data.Txn
 import com.nyxulrix.budgeter.data.currency
 import com.nyxulrix.budgeter.data.json
 import com.nyxulrix.budgeter.data.periodOf
-import com.nyxulrix.budgeter.data.personName
+import com.nyxulrix.budgeter.data.personLabel
 import com.nyxulrix.budgeter.data.setSync
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.sync.withLock
@@ -52,7 +52,7 @@ class HttpError(val code: Int, msg: String) : Exception(msg)
 /** Export of transactions to one Google spreadsheet, one tab per budget period. Export only. */
 object Sheets {
     private val HEADER = listOf("ID", "Date", "Merchant", "Category", "Amount", "My Share", "Tax", "Service Charge",
-        "Paid Currency", "Paid Amount", "Payer", "Split Method", "Group", "Trip", "Items JSON", "Notes")
+        "Paid Currency", "Paid Amount", "Payer", "Split Method", "People", "Trip", "Items JSON", "Notes")
     private const val LAST_COL = "P"
 
     fun needsSync(t: Txn) = t.syncedAt == null || t.updatedAt > t.syncedAt
@@ -135,8 +135,8 @@ object Sheets {
             JsonPrimitive(t.id), JsonPrimitive(t.date), JsonPrimitive(t.merchant), JsonPrimitive(t.category),
             n(t.total, home), n(t.myShare, home), n(t.tax, paidCur), n(t.serviceCharge, paidCur),
             JsonPrimitive(paidCur), n(t.foreign?.amount ?: t.total, paidCur),
-            JsonPrimitive(st.personName(t.payer)), JsonPrimitive(if (t.shares.isEmpty()) "none" else t.method.name.lowercase()),
-            JsonPrimitive(st.groups.firstOrNull { it.id == t.groupId }?.name ?: ""),
+            JsonPrimitive(personLabel(t.payer)), JsonPrimitive(if (t.shares.isEmpty()) "none" else t.method.name.lowercase()),
+            JsonPrimitive(maxOf(t.people, 1)),
             JsonPrimitive(st.trips.firstOrNull { it.id == t.tripId }?.name ?: ""),
             JsonPrimitive(if (t.items.isEmpty()) "" else items.toString()), JsonPrimitive(t.note),
         )

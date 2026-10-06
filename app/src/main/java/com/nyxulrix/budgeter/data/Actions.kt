@@ -66,26 +66,6 @@ fun Store.deletePlanned(id: String) = update { st ->
     )
 }
 
-// People and groups
-
-fun Store.addPerson(name: String): String {
-    val p = Person(name = name.trim())
-    update { it.copy(people = it.people + p) }
-    return p.id
-}
-
-fun Store.saveGroup(g: Group) = update { st ->
-    st.copy(groups = if (st.groups.any { it.id == g.id }) st.groups.map { if (it.id == g.id) g else it } else st.groups + g)
-}
-
-fun Store.deleteGroup(id: String) = update { st ->
-    st.copy(groups = st.groups.filterNot { it.id == id }, settlements = st.settlements.filterNot { it.groupId == id })
-}
-
-fun Store.settleUp(groupId: String, from: String, to: String, amount: Long) = update {
-    it.copy(settlements = it.settlements + Settlement(groupId = groupId, from = from, to = to, amount = amount, date = LocalDate.now().toString()))
-}
-
 // Trips
 
 fun Store.addTrip(t: Trip) = update { it.copy(trips = it.trips + t) }
@@ -143,5 +123,10 @@ fun Store.deleteTrip(id: String) = update { st ->
 }
 
 fun Store.setCategories(list: List<String>) = update { it.copy(categories = list) }
+
+/** Daily categories use up the day's budget; monthly ones only lower the month (and so the days left). */
+fun Store.setDaily(category: String, daily: Boolean) = update {
+    it.copy(monthlyCategories = if (daily) it.monthlyCategories - category else it.monthlyCategories + category)
+}
 
 fun Store.setSync(f: (SyncInfo) -> SyncInfo) = update { it.copy(sync = f(it.sync)) }

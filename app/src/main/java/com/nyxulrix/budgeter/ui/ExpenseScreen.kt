@@ -50,7 +50,8 @@ import com.nyxulrix.budgeter.data.currency
 import com.nyxulrix.budgeter.data.currencyCodes
 import com.nyxulrix.budgeter.data.deleteTxn
 import com.nyxulrix.budgeter.data.newId
-import com.nyxulrix.budgeter.data.personName
+import com.nyxulrix.budgeter.data.personId
+import com.nyxulrix.budgeter.data.personLabel
 import com.nyxulrix.budgeter.data.Rates
 import com.nyxulrix.budgeter.data.saveTxn
 import kotlinx.coroutines.launch
@@ -81,7 +82,7 @@ class Draft(home: String) {
     var tripId by mutableStateOf<String?>(null)
     var paidCur by mutableStateOf(home)
     var rate by mutableStateOf("1")
-    var groupId by mutableStateOf<String?>(null)
+    var people by mutableStateOf(1)                 // P1 (me) .. P[people]
     var payer by mutableStateOf(ME)
     var method by mutableStateOf(SplitMethod.EQUAL)
     val inputs = mutableStateMapOf<String, String>()
@@ -119,7 +120,8 @@ private fun draftFrom(st: AppState, s: Screen.Expense): Draft {
             d.printedTotal = if (d.itemised) plain(paid, cur) else ""
             d.items += t.items.map { ItemDraft(it.name, plain(it.price, cur), it.qty, it.owners, it.category) }
             d.merchant = t.merchant; d.date = LocalDate.parse(t.date); d.category = t.category; d.note = t.note
-            d.tripId = t.tripId; d.groupId = t.groupId; d.payer = t.payer; d.method = t.method
+            d.tripId = t.tripId; d.payer = t.payer; d.method = t.method
+            d.people = maxOf(t.people, t.shares.size, 1)
             t.splitInput.forEach { (who, v) ->
                 d.inputs[who] = when (t.method) {
                     SplitMethod.PERCENT -> BigDecimal.valueOf(v, 2).stripTrailingZeros().toPlainString()
@@ -129,9 +131,8 @@ private fun draftFrom(st: AppState, s: Screen.Expense): Draft {
             }
         }
         else -> {
-            val t2 = s.tripId?.let { id -> st.trips.firstOrNull { it.id == id } } ?: trip.takeIf { s.groupId == null }
+            val t2 = s.tripId?.let { id -> st.trips.firstOrNull { it.id == id } } ?: trip
             d.tripId = t2?.id
-            d.groupId = s.groupId ?: t2?.groupId
             d.paidCur = t2?.currency ?: home
             s.receipt?.let { d.load(it, d.paidCur) }
         }
@@ -151,8 +152,8 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
     var catFor by remember { mutableStateOf<ItemDraft?>(null) }
     var rereading by remember { mutableStateOf(false) }
     val cur = d.paidCur
-    val group = st.groups.firstOrNull { it.id == d.groupId }
-    val members = group?.members ?: emptyList()
+    val splitting = d.people > 1
+    val members = (1..d.people).map(::personId)
 
     // Fetch a rate when paying in another currency; the user can overwrite it.
     LaunchedEffect(cur) {
@@ -186,9 +187,9 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
     val costsHome = costsPaid.map { convert(it, cur, home, rate ?: 1.0) }.toMutableList().also { list ->
         if (list.isNotEmpty()) { val i = list.indices.maxBy { list[it] }; list[i] += totalHome - list.sum() }
     }
-    val shares: Map<String, Long> = if (group == null) emptyMap() else runCatching {
+    val shares: Map<String, Long> = if (!splitting) emptyMap() else runCatching {
         val parts = when (d.method) {
-            SplitMethod.ITEMS -> itemShares(costsHome, d.items.map { it -> it.owners.map { o -> members.indexOf(o) }.toSet() }, members.size)
+            SplitMethod.ITEMS -> itemShares(costsHome, d.items.map { it -> it.owners.map { o -> members.indexOf(o) }.filter { i -> i >= 0 }.toSet() }, members.size)
             SplitMethod.EQUAL -> split(totalHome, SplitMethod.EQUAL, members.map { 1L })
             SplitMethod.SHARES -> split(totalHome, SplitMethod.SHARES, members.map { d.inputs[it]?.toLongOrNull() ?: 1L })
             SplitMethod.PERCENT -> split(totalHome, SplitMethod.PERCENT, members.map {
@@ -214,10 +215,11 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
             note = d.note.trim(),
             tax = taxV ?: 0, serviceCharge = svcV ?: 0, discount = if (d.itemised) discV ?: 0 else 0,
             taxIncluded = d.taxIncluded,
-            payer = if (group != null) d.payer else ME,
+            payer = if (splitting && d.payer in members) d.payer else ME,
             method = d.method,
+            people = d.people,
             shares = shares,
-            splitInput = if (group == null) emptyMap() else members.associateWith { who ->
+            splitInput = if (!splitting) emptyMap() else members.associateWith { who ->
                 val v = d.inputs[who].orEmpty()
                 when (d.method) {
                     SplitMethod.PERCENT -> runCatching { BigDecimal(v).movePointRight(2).toLong() }.getOrDefault(0)
@@ -229,7 +231,6 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
             items = if (d.itemised) d.items.mapIndexed { i, it ->
                 TxnItem(it.name.trim(), parseMoney(it.price, cur) ?: 0, it.qty, costsHome.getOrElse(i) { 0 }, it.owners, it.category)
             } else emptyList(),
-            groupId = d.groupId,
             tripId = d.tripId,
             foreign = if (cur != home) Foreign(cur, totalPaid, rate!!) else null,
             plannedId = existing?.plannedId,
@@ -271,8 +272,8 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
                             Text("[${item.category ?: d.category}]", style = Type.label,
                                 modifier = Modifier.heightIn(min = 32.dp).clickable(role = Role.Button, onClickLabel = "Change item category") { catFor = item }.padding(4.dp))
                         }
-                        if (group != null && d.method == SplitMethod.ITEMS) Toggles(
-                            members.map { it to st.personName(it) }, item.owners,
+                        if (splitting && d.method == SplitMethod.ITEMS) Toggles(
+                            members.map { it to personLabel(it) }, item.owners,
                         ) { who -> item.owners = if (who in item.owners) item.owners - who else item.owners + who }
                     }
                 }
@@ -287,7 +288,7 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
             Rule()
             KeyValue("Total", money(totalPaid, cur))
             if (cur != home) KeyValue("In $home", money(totalHome, home))
-            if (group != null) KeyValue("My share", money(shares[ME] ?: 0, home))
+            if (splitting) KeyValue("My share (P1)", money(shares[ME] ?: 0, home))
         }
 
         Window("Details") {
@@ -305,28 +306,46 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
             val trips = st.trips.sortedByDescending { it.start }
             Choice(listOf<String?>(null) + trips.map { it.id }, d.tripId, { id -> id?.let { tid -> "Trip: " + trips.first { it.id == tid }.name } ?: "Monthly budget" }, { id ->
                 d.tripId = id
-                trips.firstOrNull { it.id == id }?.let { t -> d.paidCur = t.currency; t.groupId?.let { g -> d.groupId = g } }
+                trips.firstOrNull { it.id == id }?.let { t -> d.paidCur = t.currency }
             })
             if (d.tripId != null) Small("Comes out of the trip fund, not your daily budget.")
         }
 
         Window("Split") {
-            Choice(listOf<String?>(null) + st.groups.map { it.id }, d.groupId, { id -> st.groups.firstOrNull { it.id == id }?.name ?: "Just me" }, { d.groupId = it })
-            if (group != null) {
+            Label("Split between")
+            Choice((1..8).toList(), d.people, { if (it == 1) "Just me" else "$it people" }, { n ->
+                d.people = n
+                if (d.payer !in (1..n).map(::personId)) d.payer = ME
+            })
+            if (splitting) {
+                Small("You are P1. Everyone else is P2, P3 and so on. No names needed.")
                 Label("Who paid")
-                Choice(members, d.payer, { st.personName(it) }, { d.payer = it })
+                Choice(members, d.payer, { personLabel(it) }, { d.payer = it })
                 Label("How to split")
                 Choice(SplitMethod.entries.filter { it != SplitMethod.ITEMS || d.itemised }, d.method, { it.label }, { d.method = it })
                 when (d.method) {
                     SplitMethod.EQUAL, SplitMethod.ITEMS -> Unit
                     else -> members.forEach { who ->
-                        PixelField(d.inputs[who] ?: "", { d.inputs[who] = it }, st.personName(who) + when (d.method) {
+                        PixelField(d.inputs[who] ?: "", { d.inputs[who] = it }, personLabel(who) + when (d.method) {
                             SplitMethod.PERCENT -> " (%)"; SplitMethod.SHARES -> " (shares)"; else -> " ($cur)"
                         }, keyboard = KeyboardType.Decimal, placeholder = if (d.method == SplitMethod.SHARES) "1" else "0")
                     }
                 }
-                if (d.method == SplitMethod.ITEMS) Small("Tap names under each item. No names = shared by everyone.")
-                if (shares.isNotEmpty()) members.forEach { KeyValue(st.personName(it), money(shares[it] ?: 0, home)) }
+                if (d.method == SplitMethod.ITEMS) Small("Tap P numbers under each item. None picked = shared by everyone.")
+                if (shares.isNotEmpty()) {
+                    Rule()
+                    members.forEach { who ->
+                        KeyValue(personLabel(who) + if (who == ME) " (you)" else "", money(shares[who] ?: 0, home))
+                        if (d.itemised) {
+                            val mine = d.items.filter { it.owners.isEmpty() || who in it.owners }.map { it.name.ifBlank { "item" } }
+                            if (mine.isNotEmpty()) Small(mine.joinToString(" · "))
+                        }
+                    }
+                    Rule()
+                    if (d.payer == ME) members.filter { it != ME && (shares[it] ?: 0) > 0 }.forEach {
+                        Body("${personLabel(it)} owes you ${money(shares[it] ?: 0, home)}")
+                    } else if ((shares[ME] ?: 0) > 0) Body("You owe ${personLabel(d.payer)} ${money(shares[ME] ?: 0, home)}")
+                }
             }
         }
 

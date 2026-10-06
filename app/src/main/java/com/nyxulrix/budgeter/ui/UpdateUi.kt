@@ -49,7 +49,7 @@ fun UpdateBanner() {
     Box(Modifier.fillMaxWidth().height(3.dp).background(Px.brown))
 }
 
-/** Profile → Updates: version, manual check, install, and (debug builds) the local test server. */
+/** Profile → Updates: version, manual check and install. */
 @Composable
 fun UpdatesWindow() {
     val ctx = LocalContext.current
@@ -57,7 +57,6 @@ fun UpdatesWindow() {
     val release by Updater.available.collectAsState()
     val status by Updater.status.collectAsState()
     val busy by Updater.busy.collectAsState()
-    var server by remember { mutableStateOf(Updater.testServer(ctx)) }
     Window("Updates") {
         KeyValue("This version", BuildConfig.VERSION_NAME + if (BuildConfig.DEBUG) " (debug)" else "")
         release?.let { r ->
@@ -68,10 +67,5 @@ fun UpdatesWindow() {
         PixelButton("Check for updates", { scope.launch { Updater.check(ctx, force = true) } }, kind = Kind.SECONDARY, enabled = !busy)
         status?.let { Small(it, color = Px.brown) }
         Small("Updates come from github.com/${BuildConfig.UPDATE_REPO} releases and only install if signed with this app's key.")
-        if (BuildConfig.DEBUG) FoldWindow("Test server (debug builds)") {
-            Small("Point update checks at the PC's test server instead of GitHub. Emulator: http://10.0.2.2:8787. Phone on Wi-Fi: http://<PC address>:8787. Blank = GitHub.")
-            PixelField(server, { server = it }, "Server", keyboard = KeyboardType.Uri, placeholder = "http://192.168.1.10:8787")
-            PixelButton("Save", { Updater.setTestServer(ctx, server); Updater.status.value = "Saved. Tap Check for updates." }, kind = Kind.SECONDARY)
-        }
     }
 }

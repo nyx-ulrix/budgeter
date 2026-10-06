@@ -33,6 +33,9 @@ import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.size
 import androidx.glance.layout.width
+import androidx.glance.layout.ContentScale
+import androidx.glance.semantics.contentDescription
+import androidx.glance.semantics.semantics
 import androidx.glance.text.FontFamily
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
@@ -111,38 +114,29 @@ private fun Tiny(big: String, small: String, color: ColorProvider, action: andro
 
 private fun paceColor(p: Pace) = when (p) { Pace.ON_TRACK -> green; Pace.SLIGHTLY_OVER -> orange; Pace.OVER -> red }
 
+/**
+ * Main widget, drawn with the app's own look: left to spend today with a "+" to add an expense, then today's bar
+ * above the month's colour-coded bar. Small sizes (flip cover screens, 2×1) keep just the number and the "+".
+ */
 class SpendWidget : GlanceAppWidget() {
-    override val sizeMode = SIZES
+    override val sizeMode = SizeMode.Exact
     override suspend fun provideGlance(context: Context, id: GlanceId) = provideContent {
+        val size = LocalSize.current
         val st = App.store.value
-        val s = st.snapshot()
-        val cur = st.currency
-        if (tiny()) Tiny("${(s.fraction * 100).toInt()}%", "of month · ${s.pace.label}", paceColor(s.pace), open(context, "home"))
-        else Frame("This month", open(context, "home")) {
-            Text("${money(s.spent, cur)} / ${money(s.spendable, cur)}", style = t(13, bold = true))
-            Spacer(GlanceModifier.height(4.dp))
-            LinearProgressIndicator(s.fraction, GlanceModifier.fillMaxWidth().height(10.dp), color = paceColor(s.pace), backgroundColor = ColorProvider(Color(0xFFE7D6AD)))
-            Spacer(GlanceModifier.height(4.dp))
-            Text("${(s.fraction * 100).toInt()}% used · ${s.pace.label}", style = t(12, paceColor(s.pace)))
-        }
-    }
-}
-
-class DailyWidget : GlanceAppWidget() {
-    override val sizeMode = SIZES
-    override suspend fun provideGlance(context: Context, id: GlanceId) = provideContent {
-        val st = App.store.value
-        val d = st.snapshot().day
-        val cur = st.currency
-        if (tiny()) Tiny(money(d.remaining, cur), "left today", if (d.remaining < 0) red else brown, open(context, "home"))
-        else Frame("Today", open(context, "home")) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Image(ImageProvider(R.drawable.mascot_idle), "Mascot", GlanceModifier.size(32.dp))
-                Spacer(GlanceModifier.width(8.dp))
-                Column {
-                    Text("Left ${money(d.remaining, cur)}", style = t(14, if (d.remaining < 0) red else brown, true))
-                    Text("Budget ${money(d.budget, cur)} · spent ${money(d.spent, cur)}", style = t(11))
-                }
+        val snap = st.snapshot()
+        val art = WidgetArt.main(context, st, size.width.value, size.height.value)
+        Box(GlanceModifier.fillMaxSize().clickable(open(context, "home"))) {
+            Image(
+                ImageProvider(art),
+                "Budgeter: ${money(snap.day.remaining, st.currency)} left today. Month ${money(snap.spent, st.currency)} of ${money(snap.spendable, st.currency)}" +
+                    if (snap.over) ", over budget" else "",
+                GlanceModifier.fillMaxSize(), contentScale = ContentScale.FillBounds,
+            )
+            Box(
+                GlanceModifier.fillMaxSize().padding(top = (WidgetArt.FRAME + 8f).dp, end = (WidgetArt.SHADOW + WidgetArt.FRAME + WidgetArt.PAD).dp),
+                contentAlignment = Alignment.TopEnd,
+            ) {
+                Box(GlanceModifier.size(WidgetArt.BUTTON.dp).clickable(open(context, "add")).semantics { contentDescription = "Add expense" }) {}
             }
         }
     }
@@ -191,7 +185,6 @@ class PlannedWidget : GlanceAppWidget() {
 }
 
 class SpendReceiver : GlanceAppWidgetReceiver() { override val glanceAppWidget = SpendWidget() }
-class DailyReceiver : GlanceAppWidgetReceiver() { override val glanceAppWidget = DailyWidget() }
 class QuickAddReceiver : GlanceAppWidgetReceiver() { override val glanceAppWidget = QuickAddWidget() }
 class PlannedReceiver : GlanceAppWidgetReceiver() { override val glanceAppWidget = PlannedWidget() }
 
@@ -199,7 +192,7 @@ object Widgets {
     /** Redraw every widget. Called after each change. */
     fun refresh(ctx: Context) {
         App.scope.launch {
-            SpendWidget().updateAll(ctx); DailyWidget().updateAll(ctx); PlannedWidget().updateAll(ctx)
+            SpendWidget().updateAll(ctx); PlannedWidget().updateAll(ctx)
         }
     }
 
@@ -214,7 +207,7 @@ object Widgets {
 
 class MidnightWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
     override suspend fun doWork(): Result {
-        SpendWidget().updateAll(applicationContext); DailyWidget().updateAll(applicationContext); PlannedWidget().updateAll(applicationContext)
+        SpendWidget().updateAll(applicationContext); PlannedWidget().updateAll(applicationContext)
         Widgets.scheduleMidnight(applicationContext)
         return Result.success()
     }

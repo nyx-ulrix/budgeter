@@ -76,12 +76,6 @@ class CoreTest {
         assertEquals(listOf(500L, 1_500L), itemShares(listOf(1_000, 1_000), listOf(emptySet(), setOf(1)), 2))
     }
 
-    @Test fun settlesDebts() {
-        val t = settle(mapOf("me" to 7_500, "a" to -2_500, "b" to -2_500, "c" to -2_500))
-        assertEquals(3, t.size)
-        assertTrue(t.all { it.to == "me" && it.amount == 2_500L })
-        assertTrue(settle(mapOf("me" to 0, "a" to 0)).isEmpty())
-    }
 
     @Test fun receiptAllocationUsesOnlyPrintedCharges() {
         // Singapore restaurant: 10% service charge then 9% GST, both printed.

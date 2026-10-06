@@ -12,9 +12,9 @@ if not exist "%ADB%" set "ADB=adb"
 echo.
 echo  BUDGETER ^| building...
 echo.
-call "%~dp0gradlew.bat" :app:assembleDebug -q
+call "%~dp0gradlew.bat" :app:assembleRelease -q
 if errorlevel 1 goto fail
-set "APK=%~dp0app\build\outputs\apk\debug\app-debug.apk"
+set "APK=%~dp0app\build\outputs\apk\release\app-release.apk"
 
 :wait
 set COUNT=0
