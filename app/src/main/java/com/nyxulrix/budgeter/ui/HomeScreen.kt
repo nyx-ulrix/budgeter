@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -49,13 +50,6 @@ fun paceColor(p: Pace): Color = when (p) {
 /** Brown normally, orange once today's budget is used and you're into saved-up money, red past that too. */
 fun dayColor(d: com.nyxulrix.budgeter.core.Day) = when { d.remaining < 0 -> Px.red; d.dailyLeft < 0 -> Px.orange; else -> Px.brown }
 
-/** The small line about money saved up from earlier days, or null when there's none. */
-fun savedUpLine(d: com.nyxulrix.budgeter.core.Day, cur: String): String? = when {
-    d.bonus <= 0 -> null
-    d.dailyLeft < 0 -> "Using saved-up money: ${money(d.bonusLeft, cur)} of ${money(d.bonus, cur)} left"
-    else -> "+ ${money(d.bonus, cur)} saved up from earlier days, yours to use any day this month"
-}
-
 fun paceSymbol(p: Pace) = when (p) { Pace.ON_TRACK -> "●"; Pace.SLIGHTLY_OVER -> "▲"; Pace.OVER -> "✖" }
 
 @Composable
@@ -78,10 +72,14 @@ fun HomeScreen(st: AppState) {
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Small("Budget ${money(snap.day.budget, cur)}")
+                Small("Today's budget ${money(snap.day.budget, cur)}")
                 Small("Spent ${money(snap.day.spent, cur)}")
             }
-            savedUpLine(snap.day, cur)?.let { Small(it, color = if (snap.day.dailyLeft < 0) Px.orange else Px.green) }
+            PixelProgress(
+                if (snap.day.budget > 0) snap.day.spent.toFloat() / snap.day.budget else if (snap.day.spent > 0) 1f else 0f,
+                color = when { snap.day.remaining < 0 -> Px.red; snap.day.dailyLeft < 0 -> Px.yellow; else -> Px.orange },
+            )
+            SavedUp(snap.day, cur)
             Sparkline(st, now)
         }
 
@@ -138,6 +136,29 @@ fun HomeScreen(st: AppState) {
     }
 
     reserving?.let { p -> ReserveDialog(st, p) { reserving = null } }
+}
+
+/**
+ * Money saved up this month: what earlier days left unspent, added up day by day, minus anything already
+ * dipped into today. It can be spent any day this month; at month end it becomes savings.
+ */
+@Composable
+private fun SavedUp(day: com.nyxulrix.budgeter.core.Day, cur: String) {
+    Row(
+        Modifier.fillMaxWidth().frame(Px.cream, width = 2.dp).padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Art(R.drawable.icon_coin, 22.dp)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Label("Saved up this month")
+            Small(when {
+                day.bonus <= 0 -> "Spend less than today's budget and the rest builds up here."
+                day.dailyLeft < 0 -> "Using it today: ${money(day.bonus - day.bonusLeft, cur)} of ${money(day.bonus, cur)}."
+                else -> "Unspent from earlier days. Use it any day this month."
+            })
+        }
+        Text(money(day.bonusLeft, cur), style = Type.number, color = if (day.bonusLeft > 0) Px.green else Px.muted)
+    }
 }
 
 /** Spent per day for the last 3 days as small bars. */
