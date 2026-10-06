@@ -3,7 +3,7 @@
 Android budget planner from `Budget_Planner_App_PRD.md`, skinned with the Nostelika pixel-art brief.
 This file records every decision that differs from or adds to those two briefs. Where it is silent, the briefs apply.
 
-Status: v1.0.0, 2026-10-06. Google Sheets sync is configured (project budgeter-510810). Releases publish from GitHub and the app updates itself.
+Status: v1.1.0 released 2026-10-06. Section 12 overrides earlier sections where they differ.
 
 ---
 
@@ -231,3 +231,19 @@ Each ends with a working build. After M9, one Fable audit of the whole app, then
 | Install | Phone plugged in by USB with Developer options → USB debugging on |
 | M7 | Create a Google Cloud project and Android OAuth client; steps in `docs/google-setup.md` |
 | M9 | Your final art |
+
+---
+
+## 12. Changes in v1.1 (these override the sections above)
+
+| Area | Now |
+|---|---|
+| Groups | Removed: no Groups tab, saved groups or settle-ups. An expense can be split between P1 (you), P2, P3… with no names. By-item splits list each person's items. Trips are no longer shared with a group. |
+| Monthly budget | Separate from income: you set how much you plan to spend. Spendable = that budget, or everything available after fixed costs and set-asides if none is set. Carries over to later months. |
+| Savings | Automatic: a finished month saves everything earned that wasn't spent (unspent budget and never-budgeted money). An overspent month subtracts. Manual savings lines are no longer edited in the app. |
+| Month bar | One colour-coded bar: fixed costs, then each category's spending in its own colour. Tap for amounts and shares. All red, pulsing, when over budget; "Too fast" now only means ahead of an even pace. |
+| Categories | Each is Daily or Monthly (Profile → Categories). Monthly ones (default Groceries, Bills) lower the month's money, and so every remaining day's budget, without counting as spent today. Category caps removed; Home's category window removed. |
+| Widget | Main widget (4×2) drawn in the app's pixel style: left to spend today, a "+" to add an expense, today's bar above the month's colour bar. The separate "today" widget was merged into it. |
+| UI | Folds start closed and close again when you switch tabs. Transactions' search and filters sit in one fold. AI model is a dropdown loaded from the provider. In-app pixel camera. |
+| Production | Test server removed. The install button installs the release build. |
+
