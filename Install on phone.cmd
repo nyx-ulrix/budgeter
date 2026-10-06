@@ -5,6 +5,8 @@ setlocal enabledelayedexpansion
 cd /d "%~dp0"
 title Budgeter - install on phone
 
+rem A system-wide _JAVA_OPTIONS heap cap (e.g. -Xmx512M) starves the build; clear it for this window only.
+set "_JAVA_OPTIONS="
 if not defined JAVA_HOME if exist "C:\Program Files\Android\Android Studio\jbr\bin\java.exe" set "JAVA_HOME=C:\Program Files\Android\Android Studio\jbr"
 set "ADB=%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe"
 if not exist "%ADB%" set "ADB=adb"

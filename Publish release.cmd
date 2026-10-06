@@ -4,6 +4,8 @@ rem GitHub Actions then builds the signed APK and creates the release; installed
 setlocal
 cd /d "%~dp0"
 title Budgeter - publish release
+rem A system-wide _JAVA_OPTIONS heap cap (e.g. -Xmx512M) starves the build; clear it for this window only.
+set "_JAVA_OPTIONS="
 if not defined JAVA_HOME if exist "C:\Program Files\Android\Android Studio\jbr\bin\java.exe" set "JAVA_HOME=C:\Program Files\Android\Android Studio\jbr"
 
 for /f "delims=" %%t in ('git describe --tags --abbrev^=0 2^>nul') do set "LAST=%%t"
