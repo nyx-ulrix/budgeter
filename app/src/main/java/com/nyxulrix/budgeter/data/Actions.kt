@@ -40,12 +40,6 @@ fun Store.savePlanned(p: Planned) = update { st ->
     st.copy(planned = if (st.planned.any { it.id == p.id }) st.planned.map { if (it.id == p.id) p else it } else st.planned + p)
 }
 
-/** Earmarks [amount] in the current period: it leaves spendable now. */
-fun Store.reserve(p: Planned, amount: Long) {
-    val key = value.periodOf(LocalDate.now()).key
-    addLine(key, Line(kind = LineKind.RESERVE, name = p.name, amount = amount, plannedId = p.id))
-}
-
 /** Changes the total set aside for [p]: more is reserved this month; less is released from the latest reservations first. */
 fun Store.setReserved(p: Planned, total: Long) = update { it.withReserved(p, total, LocalDate.now()) }
 

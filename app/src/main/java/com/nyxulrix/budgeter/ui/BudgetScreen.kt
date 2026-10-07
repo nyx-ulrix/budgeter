@@ -3,6 +3,8 @@ package com.nyxulrix.budgeter.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -17,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import com.nyxulrix.budgeter.App
 import com.nyxulrix.budgeter.R
 import com.nyxulrix.budgeter.core.Period
+import com.nyxulrix.budgeter.core.digits
 import com.nyxulrix.budgeter.core.money
 import com.nyxulrix.budgeter.core.parseMoney
 import com.nyxulrix.budgeter.core.plain
@@ -33,7 +36,7 @@ import com.nyxulrix.budgeter.data.editPlan
 import com.nyxulrix.budgeter.data.periodOf
 import com.nyxulrix.budgeter.data.planFor
 import com.nyxulrix.budgeter.data.removeLine
-import com.nyxulrix.budgeter.data.reserve
+import com.nyxulrix.budgeter.data.setReserved
 import com.nyxulrix.budgeter.data.reserved
 import com.nyxulrix.budgeter.data.snapshot
 import com.nyxulrix.budgeter.data.spendable
@@ -44,8 +47,10 @@ import com.nyxulrix.budgeter.data.tripMonthlyTotal
 import com.nyxulrix.budgeter.data.spent
 import com.nyxulrix.budgeter.data.startDay
 import com.nyxulrix.budgeter.data.total
+import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
+import kotlin.math.roundToLong
 
 @Composable
 fun BudgetScreen(st: AppState) {
@@ -149,7 +154,8 @@ private fun BudgetWindow(st: AppState, key: String, plan: Plan, cur: String) {
                 placeholder = plain(available.coerceAtLeast(0), cur), error = if (text.isNotBlank() && v == null) "Not a number" else null)
             PixelButton("Set", { App.store.editPlan(key) { it.copy(budget = v) } }, enabled = v != null && v >= 0 && v != plan.budget)
         }
-        if (v != null && v > available) Small("That's more than the ${money(available, cur)} left after fixed costs and set-asides.", color = Px.red)
+        val room = available + plan.total(LineKind.RESERVE)   // reservations come off the budget, so they don't count against it here
+        if (v != null && v > room) Small("That's more than the ${money(room, cur)} left after fixed costs and set-asides.", color = Px.red)
         if (plan.budget != null) PixelButton("Use everything available", { App.store.editPlan(key) { it.copy(budget = null) } }, kind = Kind.SECONDARY)
         Rule()
         var targetText by remember(key, plan.savingsTarget) { mutableStateOf(if (plan.savingsTarget > 0) plain(plan.savingsTarget, cur) else "") }
@@ -159,7 +165,9 @@ private fun BudgetWindow(st: AppState, key: String, plan: Plan, cur: String) {
                 placeholder = "0.00", error = if (tv == null) "Not a number" else null)
             PixelButton("Set", { App.store.editPlan(key) { it.copy(savingsTarget = tv!!) } }, enabled = tv != null && tv >= 0 && tv != plan.savingsTarget)
         }
-        Small("${money(plan.budget ?: available, cur)} budget − ${money(plan.savingsTarget, cur)} savings target = ${money(spendable, cur)} to spend.", color = Px.brown)
+        val reserves = if (plan.budget != null) plan.total(LineKind.RESERVE) else 0L
+        Small("${money(plan.budget ?: available, cur)} budget" + (if (reserves > 0) " − ${money(reserves, cur)} reserved" else "") +
+            " − ${money(plan.savingsTarget, cur)} savings target = ${money(spendable, cur)} to spend.", color = Px.brown)
         Small("The target comes off what you can spend straight away. Spending past that dips into it (the bar pulses yellow); past the target too is over budget (red). Both carry over to the next months. Anything else unspent also becomes savings.")
     }
 }
@@ -210,19 +218,37 @@ private fun LineEditor(kind: LineKind, key: String, plan: Plan, cur: String) {
 }
 
 
-/** Reserve part of a planned item's price from this month. Shows the hit to today's budget. */
+/** Set the total put aside for a planned item, by slider or typed. Shows the change to today's budget first. */
 @Composable
 fun ReserveDialog(st: AppState, p: Planned, onDismiss: () -> Unit) {
     val cur = st.currency
-    val left = (p.price - st.reserved(p.id)).coerceAtLeast(0)
-    var text by remember { mutableStateOf(plain(left, cur)) }
-    val v = parseMoney(text, cur)
+    val res = st.reserved(p.id)
+    val max = maxOf(p.price, res)
+    val unit = BigDecimal.ONE.movePointRight(digits(cur)).toLong()
+    var text by remember { mutableStateOf(plain(if (res == 0L) max else res, cur)) }
+    val v = parseMoney(text, cur)?.takeIf { it in 0..max }
     val snap = st.snapshot()
     val daysLeft = ChronoUnit.DAYS.between(LocalDate.now(), snap.period.end).coerceAtLeast(1)
+    val thisMonth = st.planFor(snap.period.key).lines.filter { it.plannedId == p.id && it.kind == LineKind.RESERVE }.sumOf { it.amount }
     PixelDialog("Reserve: ${p.name}", onDismiss) {
-        Body("Still to reserve: ${money(left, cur)}")
-        PixelField(text, { text = it }, "Reserve now", keyboard = KeyboardType.Decimal)
-        if (v != null && v > 0) Small("Lowers your daily budget by about ${money(v / daysLeft, cur)} for the rest of the month.", color = Px.brown)
-        PixelButton("Reserve", { App.store.reserve(p, v!!); onDismiss() }, Modifier.fillMaxWidth(), enabled = v != null && v > 0)
+        Body("Price ${money(p.price, cur)} · set aside ${money(res, cur)}")
+        Slider(
+            value = (v ?: res).toFloat(),
+            onValueChange = { f -> text = plain(if (f >= max) max else ((f / unit).roundToLong() * unit).coerceIn(0, max), cur) },
+            valueRange = 0f..max.toFloat().coerceAtLeast(1f),
+            colors = SliderDefaults.colors(thumbColor = Px.orange, activeTrackColor = Px.blue, inactiveTrackColor = Px.creamLight),
+        )
+        PixelField(text, { text = it }, "Total set aside ($cur)", keyboard = KeyboardType.Decimal,
+            error = if (v == null) "Enter 0 to ${money(max, cur)}" else null)
+        if (v != null && v != res) Small(
+            if (v > res) "Sets aside ${money(v - res, cur)} more this month. Daily budget down about ${money((v - res) / daysLeft, cur)}."
+            else (res - v).let { free ->
+                val back = minOf(free, thisMonth)
+                "Frees ${money(free, cur)}." + (if (back > 0) " Daily budget up about ${money(back / daysLeft, cur)}." else "") +
+                    (if (free > back) " ${money(free - back, cur)} goes back to earlier months' savings." else "")
+            },
+            color = Px.brown,
+        )
+        PixelButton("Set", { App.store.setReserved(p, v!!); onDismiss() }, Modifier.fillMaxWidth(), enabled = v != null && v != res)
     }
 }

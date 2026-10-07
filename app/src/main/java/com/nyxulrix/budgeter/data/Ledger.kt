@@ -51,10 +51,11 @@ val Plan.spendable: Long get() = income + lines.sumOf { if (it.kind.adds) it.amo
 fun AppState.available(key: String): Long = planFor(key).spendable - tripMonthlyTotal(key)
 
 /**
- * What I can spend this month: my chosen monthly budget (or everything available if I haven't set one),
- * minus the savings target, which is taken off straight away.
+ * What I can spend this month: my chosen monthly budget less what I reserve for planned purchases this month
+ * (or everything available if I haven't set one), minus the savings target, which is taken off straight away.
  */
-fun AppState.spendable(key: String): Long = planFor(key).let { (it.budget ?: available(key)) - it.savingsTarget }
+fun AppState.spendable(key: String): Long =
+    planFor(key).let { (it.budget?.minus(it.total(LineKind.RESERVE)) ?: available(key)) - it.savingsTarget }
 
 private fun Txn.inBudget(p: Period) = !deleted && tripId == null && LocalDate.parse(date) in p
 

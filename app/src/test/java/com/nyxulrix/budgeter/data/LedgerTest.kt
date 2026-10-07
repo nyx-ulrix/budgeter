@@ -57,6 +57,10 @@ class LedgerTest {
         assertEquals(st.spendable("2026-10") + 5_000, down.spendable("2026-10"))   // October's fully released first
         assertEquals(8_000L, down.plans["2026-09"]!!.lines.single().amount)
         assertEquals(0L, st.withReserved(p, 0, oct5).reserved("p"))
+        // With a monthly budget set, reserving still comes off what I can spend
+        val budgeted = st.copy(plans = st.plans + ("2026-10" to st.plans["2026-10"]!!.copy(budget = 60_000)))
+        assertEquals(55_000L, budgeted.spendable("2026-10"))
+        assertEquals(40_000L, budgeted.withReserved(p, 30_000, oct5).spendable("2026-10"))
     }
 
     @Test fun buyNowDoesNotDoubleCountReservation() {
