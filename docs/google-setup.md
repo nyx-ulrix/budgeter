@@ -1,6 +1,6 @@
 # Turning on Google Sheets sync
 
-**Status: done on 2026-10-06.** Project `budgeter-510810`, Sheets API on, consent screen In production with only `drive.file`, Android client "Budgeter Android" for `com.nyxulrix.budgeter` with the release key below. Home page and privacy policy: https://nyx-ulrix.github.io/budgeter/. The steps are kept here in case it ever needs redoing.
+**Status: done on 2026-10-06.** Project `budgeter-510810`, Sheets API on, consent screen In production with only `drive.file`, Android client "Budgeter Android" for `com.nyxulrix.budgeter` with the release key below. Home page and privacy policy: https://budgeter.liewjiaen.com/ and /privacy (Firebase Hosting in this same project; `firebase deploy --only hosting` from the repo root). The old https://nyx-ulrix.github.io/budgeter/ address redirects there. The steps are kept here in case it ever needs redoing.
 
 ## 1. Create the project
 
