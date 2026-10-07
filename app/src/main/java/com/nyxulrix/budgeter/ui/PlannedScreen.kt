@@ -50,7 +50,9 @@ fun PlannedScreen(st: AppState, id: String?) {
             Choice(listOf(1, 2, 3), priority, { mapOf(1 to "High", 2 to "Medium", 3 to "Low")[it]!! }, { priority = it })
             Label("Target month")
             Choice((months + target).distinct().sorted(), target, { it }, { target = it })
-            PixelButton("Save", {
+            if (existing != null && priceV != null && priceV < st.reserved(existing.id))
+                Small("You've set aside ${money(st.reserved(existing.id), cur)}. Saving frees the ${money(st.reserved(existing.id) - priceV, cur)} above the new price.", color = Px.brown)
+            PixelButton(if (existing == null) "Save" else "Save changes", {
                 App.store.savePlanned((existing ?: Planned(name = "", price = 0, targetMonth = target))
                     .copy(name = name.trim(), price = priceV!!, priority = priority, targetMonth = target))
                 nav.back()

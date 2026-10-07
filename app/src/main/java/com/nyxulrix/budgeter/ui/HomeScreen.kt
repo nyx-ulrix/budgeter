@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -181,6 +183,7 @@ private fun Sparkline(st: AppState, today: LocalDate) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PlannedRow(st: AppState, p: Planned, onReserve: () -> Unit) {
     val nav = LocalNav.current
@@ -193,8 +196,9 @@ fun PlannedRow(st: AppState, p: Planned, onReserve: () -> Unit) {
         }
         PixelProgress(if (p.price > 0) res.toFloat() / p.price else 1f, color = Px.blue, blocks = 12)
         Small("Reserved ${money(res, cur)} · ${money((p.price - res).coerceAtLeast(0), cur)} to go · for ${p.targetMonth}")
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             PixelButton("Reserve", onReserve, kind = Kind.SECONDARY)
+            PixelButton("Edit", { nav.go(Screen.PlannedEdit(p.id)) }, kind = Kind.SECONDARY)
             PixelButton("Buy now", { nav.go(Screen.PlannedEdit(p.id)) })
         }
     }

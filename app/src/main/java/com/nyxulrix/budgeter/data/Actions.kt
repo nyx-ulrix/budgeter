@@ -36,8 +36,10 @@ fun Store.deleteTxn(id: String) = update { st ->
 
 // Planned purchases
 
+/** Saves [p]. If its price drops below what's already set aside, the extra is freed (newest first). */
 fun Store.savePlanned(p: Planned) = update { st ->
     st.copy(planned = if (st.planned.any { it.id == p.id }) st.planned.map { if (it.id == p.id) p else it } else st.planned + p)
+        .let { if (p.status == PlannedStatus.OPEN && it.reserved(p.id) > p.price) it.withReserved(p, p.price, LocalDate.now()) else it }
 }
 
 /** Changes the total set aside for [p]: more is reserved this month; less is released from the latest reservations first. */
