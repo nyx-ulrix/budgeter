@@ -3,8 +3,6 @@ package com.nyxulrix.budgeter.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -50,7 +48,6 @@ import com.nyxulrix.budgeter.data.total
 import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
-import kotlin.math.roundToLong
 
 @Composable
 fun BudgetScreen(st: AppState) {
@@ -232,12 +229,7 @@ fun ReserveDialog(st: AppState, p: Planned, onDismiss: () -> Unit) {
     val thisMonth = st.planFor(snap.period.key).lines.filter { it.plannedId == p.id && it.kind == LineKind.RESERVE }.sumOf { it.amount }
     PixelDialog("Reserve: ${p.name}", onDismiss) {
         Body("Price ${money(p.price, cur)} · set aside ${money(res, cur)}")
-        Slider(
-            value = (v ?: res).toFloat(),
-            onValueChange = { f -> text = plain(if (f >= max) max else ((f / unit).roundToLong() * unit).coerceIn(0, max), cur) },
-            valueRange = 0f..max.toFloat().coerceAtLeast(1f),
-            colors = SliderDefaults.colors(thumbColor = Px.orange, activeTrackColor = Px.blue, inactiveTrackColor = Px.creamLight),
-        )
+        PixelSlider(v ?: res, { text = plain(it, cur) }, max, unit)
         PixelField(text, { text = it }, "Total set aside ($cur)", keyboard = KeyboardType.Decimal,
             error = if (v == null) "Enter 0 to ${money(max, cur)}" else null)
         if (v != null && v != res) Small(

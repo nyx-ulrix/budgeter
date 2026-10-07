@@ -57,6 +57,17 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.drag
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.setProgress
+import kotlin.math.roundToLong
 import java.time.LocalDate
 
 /** Hard offset shadow, drawn behind and outside the element like the brief's `box-shadow: 4px 4px 0`. */
@@ -229,6 +240,32 @@ fun PixelProgress(fraction: Float, modifier: Modifier = Modifier, color: Color =
             Box(Modifier.weight(1f).height(14.dp).background(if (i < filled) color else Px.creamLight))
         }
     }
+}
+
+/**
+ * Slider drawn as a [PixelProgress] bar. Tap or drag along it; it moves in whole [step]s from 0 up to [max]
+ * (a part-step left at the top end is typed instead). With 20 or fewer steps, each block is one step.
+ */
+@Composable
+fun PixelSlider(value: Long, onChange: (Long) -> Unit, max: Long, step: Long, modifier: Modifier = Modifier, color: Color = Px.blue) {
+    val stops = (max / step).coerceAtLeast(0)
+    var width by remember { mutableIntStateOf(1) }
+    val latest by rememberUpdatedState(onChange)
+    fun at(x: Float) = ((x / width).coerceIn(0f, 1f) * max / step).roundToLong().coerceIn(0, stops) * step
+    Box(
+        modifier.fillMaxWidth().onSizeChanged { width = it.width.coerceAtLeast(1) }
+            .pointerInput(stops, step) {
+                awaitEachGesture {
+                    val down = awaitFirstDown()
+                    latest(at(down.position.x))
+                    drag(down.id) { latest(at(it.position.x)); it.consume() }
+                }
+            }
+            .semantics {
+                progressBarRangeInfo = ProgressBarRangeInfo(value.toFloat(), 0f..max.toFloat().coerceAtLeast(1f), stops.toInt().coerceAtLeast(1) - 1)
+                setProgress { v -> latest((v / step).roundToLong().coerceIn(0, stops) * step); true }
+            },
+    ) { PixelProgress(if (max > 0) value.toFloat() / max else 0f, color = color, blocks = stops.toInt().coerceIn(1, 20)) }
 }
 
 /** Square status chip with a symbol + word so state never relies on colour alone. */
