@@ -162,6 +162,11 @@ class CoreTest {
             assertEquals(65L, r.tax)
             assertTrue(r.taxIncluded)
         }
+        // A misread "Total" is still the total, not an item
+        val misread = ReceiptText.parse(listOf("SHOP", "Ricebox   7.90", "1 Subtotao   7.90", "Net Tota1   7.90", "Net Totai   7.90").joinToString("\n"), "SGD")
+        assertEquals(listOf("Ricebox"), misread.items.map { it.name })
+        assertEquals(790L, misread.total)
+        assertEquals(790L, misread.subtotal)
     }
 
     @Test fun findsDates() {

@@ -20,8 +20,10 @@ object ReceiptText {
     }
     private val qtyPrefix = Regex("""^(\d{1,2})\s*[xX@]?\s+(.*[A-Za-z].*)$""")
     private val skip = Regex("""\b(CHANGE|CASH|TENDER|VISA|MASTER|AMEX|NETS|PAYNOW|CARD|PAID|PAYMENT|ROUNDING|ITEMS?\s*COUNT|QTY)\b""")
-    private val subtotalWord = Regex("""SUB\s*-?\s*TOTAL""")
-    private val totalWord = Regex("""\b(GRAND\s+TOTAL|TOTAL|AMOUNT\s+DUE|NETT|BALANCE\s+DUE)\b""")
+    // OCR often reads TOTAL's last letter as 1, I, |, O or 0 ("Net Tota1", "Subtotao"), so those count too.
+    private const val TOTAL = """T[O0]TA[L1I|!O0]"""
+    private val subtotalWord = Regex("""SUB\s*-?\s*$TOTAL""")
+    private val totalWord = Regex("""\b(GRAND\s+$TOTAL|$TOTAL|AMOUNT\s+DUE|NETT|BALANCE\s+DUE)""")
     private val serviceWord = Regex("""\b(SERVICE|SVC|SVR|S/C|SC)\b""")
     private val taxWord = Regex("""\b(GST|TAX|VAT|SST)\b""")
     private val discountWord = Regex("""\b(DISC|DISCOUNT|LESS|PROMO|VOUCHER)\b""")

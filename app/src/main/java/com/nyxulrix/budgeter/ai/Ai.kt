@@ -105,6 +105,7 @@ Rules:
 - If a service charge is already inside item prices and not printed as its own line, service_charge is 0.
 - Ignore payment, card, cash, change, rounding and loyalty-point lines.
 - Section headers such as "*** Retail/Takeaway ***" or "== Dine in ==" are not items. If a price sits on a header row, it belongs to the item printed next to it.
+- Subtotal, total, net total and tax lines are never items, even when the OCR misspells them (e.g. "Subtotao", "Net Tota1").
 - Numbers are plain decimals without currency symbols or thousands separators.
 - Dates on receipts are usually day-first unless that is impossible."""
 
