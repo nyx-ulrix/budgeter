@@ -149,6 +149,19 @@ class CoreTest {
         val inclusive = ReceiptText.parse("SHOP\nApple 3.27\nTotal 3.27\nGST incl. 0.27", "SGD")
         assertTrue(inclusive.taxIncluded)
         assertEquals(0L, inclusive.mismatch)
+
+        // Header rows aren't items, even when a tilted photo puts the price on the header's row
+        val body = listOf("1 Signature Crispy Chicken Ricebox ALC", "More Spicy*", "1 SubTotal   7.90", "GST (9% Incl.)   0.65", "Net Total   7.90", "Master   7.90")
+        for (rows in listOf(
+            listOf("SHIHLIN TAIWAN STREET FOOD", "*** Retail/Takeaway ***", "1 Signature Crispy Chicken Ricebox   7.90") + body,
+            listOf("SHIHLIN TAIWAN STREET FOOD", "*** Retail/Takeaway ***   7.90", "1 Signature Crispy Chicken Ricebox") + body,
+        )) {
+            val r = ReceiptText.parse(rows.joinToString(System.lineSeparator()), "SGD")
+            assertEquals(listOf(ReceiptItem("Signature Crispy Chicken Ricebox", 790, 1)), r.items)
+            assertEquals(790L, r.total)
+            assertEquals(65L, r.tax)
+            assertTrue(r.taxIncluded)
+        }
     }
 
     @Test fun findsDates() {

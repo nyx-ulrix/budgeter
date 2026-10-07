@@ -104,6 +104,7 @@ Rules:
 - If the receipt says prices include tax (e.g. "inclusive of GST"), set tax_included_in_prices true and still copy the printed tax amount.
 - If a service charge is already inside item prices and not printed as its own line, service_charge is 0.
 - Ignore payment, card, cash, change, rounding and loyalty-point lines.
+- Section headers such as "*** Retail/Takeaway ***" or "== Dine in ==" are not items. If a price sits on a header row, it belongs to the item printed next to it.
 - Numbers are plain decimals without currency symbols or thousands separators.
 - Dates on receipts are usually day-first unless that is impossible."""
 
@@ -119,6 +120,7 @@ Rules:
         val tax: Double? = null,
         @SerialName("tax_included_in_prices") val taxIncluded: Boolean? = null,
         val total: Double? = null,
+        val category: String? = null,
     )
 
     @Serializable
@@ -128,9 +130,11 @@ Rules:
      * Turns OCR text into a [ParsedReceipt] with [p], or with the built-in rules when [p] is null.
      * Only text is sent; images never leave the phone. Throws with a readable message on AI failure.
      */
-    suspend fun parse(ctx: Context, p: Provider?, text: String, fallbackCurrency: String): ParsedReceipt {
+    suspend fun parse(ctx: Context, p: Provider?, text: String, fallbackCurrency: String, categories: List<String>): ParsedReceipt {
         if (p == null) return ReceiptText.parse(text, fallbackCurrency)
-        val reply = chat(ctx, p, SYSTEM, text)
+        val system = SYSTEM + "\n- Add \"category\": the one best fit for the whole receipt from this list, spelled exactly: " +
+            categories.joinToString(", ") + ". Use \"Other\" only if nothing fits."
+        val reply = chat(ctx, p, system, text)
         val a = reply.indexOf('{'); val b = reply.lastIndexOf('}')
         val obj = if (a >= 0 && b > a) reply.substring(a, b + 1) else ""
         val d = runCatching { json.decodeFromString(Dto.serializer(), obj) }.getOrElse { throw Exception("${p.label} didn't return receipt data. Try again or use the built-in reader.") }
@@ -147,6 +151,7 @@ Rules:
             tax = m(d.tax) ?: 0,
             taxIncluded = d.taxIncluded ?: false,
             total = m(d.total),
+            category = d.category?.let { c -> categories.firstOrNull { it.equals(c.trim(), ignoreCase = true) } },
         )
     }
 

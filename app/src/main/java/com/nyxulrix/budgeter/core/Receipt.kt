@@ -22,6 +22,7 @@ data class ParsedReceipt(
     val tax: Long = 0,
     val taxIncluded: Boolean = false,  // "prices inclusive of GST": tax line is informational, not added
     val total: Long? = null,
+    val category: String? = null,      // picked by the AI from the user's categories; the built-in reader leaves it empty
 ) {
     /** Charges spread over the items: printed service charge + tax (unless already inside prices) − discount. */
     val charges: Long get() = serviceCharge + (if (taxIncluded) 0 else tax) - discount

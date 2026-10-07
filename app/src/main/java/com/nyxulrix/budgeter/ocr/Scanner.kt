@@ -32,18 +32,27 @@ import java.io.File
 
 /** On-device text recognition. The image is read on the phone and never uploaded. */
 object Ocr {
-    /** Recognised text as printed rows: ML Kit lines that sit at the same height are joined left to right. */
+    /**
+     * Recognised text as printed rows: ML Kit lines that sit at the same height are joined left to right.
+     * Heights are measured along the text's own slant, so a tilted photo doesn't pull a price onto the row above.
+     */
     suspend fun rows(ctx: Context, uri: Uri): String {
         val image = InputImage.fromFilePath(ctx, uri)
         val result = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS).process(image).await()
         val lines = result.textBlocks.flatMap { it.lines }.filter { it.boundingBox != null }
         if (lines.isEmpty()) return result.text
-        val heights = lines.map { it.boundingBox!!.height() }.sorted()
-        val tolerance = heights[heights.size / 2] * 0.6f
+        val slant = lines.mapNotNull { l ->
+            l.cornerPoints?.takeIf { it.size >= 2 && it[1].x - it[0].x > 20 }?.let { kotlin.math.atan2((it[1].y - it[0].y).toDouble(), (it[1].x - it[0].x).toDouble()) }
+        }.sorted().let { if (it.isEmpty()) 0.0 else it[it.size / 2] }
+        val (sin, cos) = kotlin.math.sin(slant) to kotlin.math.cos(slant)
+        fun y(l: com.google.mlkit.vision.text.Text.Line) = l.boundingBox!!.let { -it.exactCenterX() * sin + it.exactCenterY() * cos }
+        fun x(l: com.google.mlkit.vision.text.Text.Line) = l.boundingBox!!.let { it.exactCenterX() * cos + it.exactCenterY() * sin }
+        val heights = lines.map { it.boundingBox!!.height() * cos }.sorted()
+        val tolerance = heights[heights.size / 2] * 0.6
         val rows = mutableListOf<MutableList<com.google.mlkit.vision.text.Text.Line>>()
-        for (l in lines.sortedBy { it.boundingBox!!.centerY() }) {
+        for (l in lines.sortedBy { y(it) }) {
             val row = rows.lastOrNull()
-            if (row != null && kotlin.math.abs(row.first().boundingBox!!.centerY() - l.boundingBox!!.centerY()) <= tolerance) row += l
+            if (row != null && kotlin.math.abs(y(row.first()) - y(l)) <= tolerance) row += l
             else rows += mutableListOf(l)
         }
         return rows.joinToString("\n") { r -> r.sortedBy { it.boundingBox!!.left }.joinToString("   ") { it.text } }
@@ -76,7 +85,7 @@ class Scanner(private val ctx: Context, private val scope: CoroutineScope, priva
             val provider = Ai.active(ctx)
             status = if (provider != null) "Asking ${provider.label} (text only)…" else "Sorting out the receipt…"
             val receipt = try {
-                Ai.parse(ctx, provider, text, fallback)
+                Ai.parse(ctx, provider, text, fallback, st.categories)
             } catch (e: Exception) {
                 toast((e.message ?: "AI failed.") + " Used the built-in reader instead.")
                 ReceiptText.parse(text, fallback)

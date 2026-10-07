@@ -26,6 +26,11 @@ object ReceiptText {
     private val taxWord = Regex("""\b(GST|TAX|VAT|SST)\b""")
     private val discountWord = Regex("""\b(DISC|DISCOUNT|LESS|PROMO|VOUCHER)\b""")
     private val inclusive = Regex("""INCL|INCLUSIVE|INCLUDES|INCLUDED""")
+    /** Section headers like "*** Retail/Takeaway ***" or "== DINE IN ==": never items. */
+    private val banner = Regex("""^[*=#~-]{2,}.*[*=#~-]{2,}$""")
+
+    private fun item(name: String, amount: Long) =
+        qtyPrefix.find(name)?.let { ReceiptItem(it.groupValues[2].trim(), amount, it.groupValues[1].toInt()) } ?: ReceiptItem(name, amount)
 
     fun parse(text: String, fallbackCurrency: String): ParsedReceipt {
         val lines = text.lines().map { it.trim() }.filter { it.isNotEmpty() }
@@ -50,6 +55,7 @@ object ReceiptText {
         var discount = 0L
         var taxIncluded = false
         var pendingName = ""
+        var pendingPrice: Long? = null   // a price that landed on a header row (tilted photo): it belongs to the next item
 
         for (line in lines) {
             val u = line.uppercase()
@@ -57,6 +63,8 @@ object ReceiptText {
             if (taxWord.containsMatchIn(u) && inclusive.containsMatchIn(u)) taxIncluded = true
             val m = price.find(line)
             if (m == null) {
+                if (banner.matches(line)) continue
+                if (pendingPrice != null && line.any { it.isLetter() }) { items += item(line, pendingPrice); pendingPrice = null; continue }
                 if (merchant.isEmpty() && line.count { it.isLetter() } >= 3) merchant = line
                 else if (total == null && line.any { it.isLetter() }) pendingName = line
                 continue
@@ -66,6 +74,8 @@ object ReceiptText {
             val name = line.substring(0, m.range.first).trim().ifEmpty { pendingName }
             val n = name.uppercase()
             pendingName = ""
+            pendingPrice = null
+            if (banner.matches(name)) { if (total == null && subtotal == null) pendingPrice = amount; continue }
             when {
                 skip.containsMatchIn(n) -> Unit
                 subtotalWord.containsMatchIn(n) -> subtotal = amount
@@ -76,11 +86,7 @@ object ReceiptText {
                     if (subtotal == null && total == null) items += ReceiptItem(name, -kotlin.math.abs(amount))
                     else discount += kotlin.math.abs(amount)
                 total != null || name.isEmpty() -> Unit
-                else -> {
-                    val q = qtyPrefix.find(name)
-                    items += if (q != null) ReceiptItem(q.groupValues[2].trim(), amount, q.groupValues[1].toInt())
-                    else ReceiptItem(name, amount)
-                }
+                else -> items += item(name, amount)
             }
         }
         return ParsedReceipt(merchant, date, currency, items, discount, subtotal, service, tax, taxIncluded, total)

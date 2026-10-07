@@ -92,6 +92,7 @@ class Draft(home: String) {
         paidCur = r.currency ?: fallbackCur
         fun p(v: Long) = if (v == 0L) "" else plain(v, paidCur)
         merchant = r.merchant.ifBlank { merchant }
+        r.category?.let { category = it }
         r.date?.let { runCatching { date = LocalDate.parse(it) } }
         items.clear(); items += r.items.map { ItemDraft(it.name, plain(it.price, paidCur), it.qty) }
         itemised = r.items.isNotEmpty()
@@ -348,7 +349,7 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
                     if (rereading) return@Choice Unit
                     rereading = true
                     scope.launch {
-                        runCatching { Ai.parse(ctx, providers.firstOrNull { it.id == id }, text, d.paidCur) }
+                        runCatching { Ai.parse(ctx, providers.firstOrNull { it.id == id }, text, d.paidCur, st.categories) }
                             .onSuccess { d.load(it, d.paidCur) }
                             .onFailure { Toast.makeText(ctx, it.message, Toast.LENGTH_LONG).show() }
                         rereading = false

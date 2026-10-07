@@ -22,6 +22,10 @@ import com.nyxulrix.budgeter.data.json
 import com.nyxulrix.budgeter.data.periodOf
 import com.nyxulrix.budgeter.data.personLabel
 import com.nyxulrix.budgeter.data.setSync
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonArray
@@ -201,47 +205,58 @@ object Sheets {
     }
 }
 
-/** Background sync. Queued after every change with a short delay so bursts of edits go up together. */
+/** Background sync: the fallback when the direct push in [SyncWorker.queue] can't finish (offline, app closed). */
 class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
-    override suspend fun doWork(): Result {
-        if (!App.store.value.sync.enabled) return Result.success()
-        val auth: AuthorizationResult = try {
-            Identity.getAuthorizationClient(applicationContext).authorize(authRequest).await()
-        } catch (e: Exception) {
-            return pause("Google sign-in failed: ${e.message}")
-        }
-        if (auth.hasResolution()) return pause("Google needs you to sign in again.")
-        val token = auth.accessToken ?: return pause("Google gave no access token.")
-        return try {
-            Sheets.run(token)
-            Result.success()
-        } catch (e: HttpError) {
-            when (e.code) {
-                401, 403 -> pause("Google access was revoked or expired. Sign in again.")
-                429, in 500..599 -> if (runAttemptCount < 8) Result.retry() else pause("Google Sheets keeps failing. Will retry on the next change.")
-                else -> pause(e.message ?: "Sync failed.")
-            }
-        } catch (e: IOException) {
-            Result.retry()
-        } catch (e: Exception) {
-            pause("Sync failed: ${e.message ?: e.javaClass.simpleName}")
-        }
-    }
-
-    private fun pause(reason: String): Result {
-        App.store.update(false) { it.copy(sync = it.sync.copy(paused = reason)) }
-        return Result.success()
-    }
+    override suspend fun doWork(): Result = syncOnce(applicationContext, runAttemptCount)
 
     companion object {
+        private var direct: Job? = null
+
+        /** One sync attempt. Sheets.run holds a lock, so the direct push and the worker never write the same rows twice. */
+        suspend fun syncOnce(ctx: Context, attempt: Int): Result {
+            if (!App.store.value.sync.enabled) return Result.success()
+            fun pause(reason: String): Result {
+                App.store.update(false) { it.copy(sync = it.sync.copy(paused = reason)) }
+                return Result.success()
+            }
+            val auth: AuthorizationResult = try {
+                Identity.getAuthorizationClient(ctx).authorize(authRequest).await()
+            } catch (e: Exception) {
+                return pause("Google sign-in failed: ${e.message}")
+            }
+            if (auth.hasResolution()) return pause("Google needs you to sign in again.")
+            val token = auth.accessToken ?: return pause("Google gave no access token.")
+            return try {
+                Sheets.run(token)
+                Result.success()
+            } catch (e: HttpError) {
+                when (e.code) {
+                    401, 403 -> pause("Google access was revoked or expired. Sign in again.")
+                    429, in 500..599 -> if (attempt < 8) Result.retry() else pause("Google Sheets keeps failing. Will retry on the next change.")
+                    else -> pause(e.message ?: "Sync failed.")
+                }
+            } catch (e: IOException) {
+                Result.retry()
+            } catch (e: Exception) {
+                pause("Sync failed: ${e.message ?: e.javaClass.simpleName}")
+            }
+        }
+
+        /**
+         * Called after every change. Pushes to the sheet a couple of seconds later (so a burst of edits goes up together)
+         * straight from the app, and also queues the worker, which picks up anything that didn't make it.
+         */
         fun queue(ctx: Context, delaySeconds: Long = 5) {
             if (!App.store.value.sync.enabled) return
+            val app = ctx.applicationContext
+            direct?.cancel()
+            direct = App.scope.launch(Dispatchers.IO) { delay(2_000); syncOnce(app, 0) }
             val req = OneTimeWorkRequestBuilder<SyncWorker>()
                 .setInitialDelay(delaySeconds, TimeUnit.SECONDS)
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
                 .build()
-            WorkManager.getInstance(ctx).enqueueUniqueWork("sheets-sync", ExistingWorkPolicy.REPLACE, req)
+            WorkManager.getInstance(app).enqueueUniqueWork("sheets-sync", ExistingWorkPolicy.REPLACE, req)
         }
     }
 }
