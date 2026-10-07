@@ -46,6 +46,25 @@ fun Store.reserve(p: Planned, amount: Long) {
     addLine(key, Line(kind = LineKind.RESERVE, name = p.name, amount = amount, plannedId = p.id))
 }
 
+/** Changes the total set aside for [p]: more is reserved this month; less is released from the latest reservations first. */
+fun Store.setReserved(p: Planned, total: Long) = update { it.withReserved(p, total, LocalDate.now()) }
+
+fun AppState.withReserved(p: Planned, total: Long, today: LocalDate): AppState {
+    val delta = total.coerceAtLeast(0) - reserved(p.id)
+    if (delta > 0) {
+        val key = periodOf(today).key
+        val plan = planFor(key)
+        return copy(plans = plans + (key to plan.copy(lines = plan.lines + Line(kind = LineKind.RESERVE, name = p.name, amount = delta, plannedId = p.id))))
+    }
+    var cut = -delta
+    return copy(plans = plans.toSortedMap(reverseOrder()).mapValues { (_, plan) ->
+        plan.copy(lines = plan.lines.reversed().mapNotNull { l ->
+            if (cut == 0L || l.plannedId != p.id || l.kind != LineKind.RESERVE) l
+            else minOf(cut, l.amount).let { take -> cut -= take; if (take == l.amount) null else l.copy(amount = l.amount - take) }
+        }.reversed())
+    })
+}
+
 /** Buys now: one expense for the full price; the part already reserved isn't counted twice. */
 fun Store.buyNow(p: Planned, category: String) = update { st ->
     val reserved = st.reserved(p.id).coerceAtMost(p.price)

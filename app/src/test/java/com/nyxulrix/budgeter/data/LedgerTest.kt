@@ -43,6 +43,22 @@ class LedgerTest {
         assertEquals(3_000L, s.day.spent)
     }
 
+    @Test fun editingReservedAddsNowAndReleasesLatestFirst() {
+        val p = Planned(id = "p", name = "Shoes", price = 50_000, targetMonth = "2026-12")
+        val st = AppState(setup, plans = mapOf(
+            "2026-09" to Plan(100_000, listOf(Line(kind = LineKind.RESERVE, name = "Shoes", amount = 10_000, plannedId = "p"))),
+            "2026-10" to Plan(100_000, listOf(Line(kind = LineKind.RESERVE, name = "Shoes", amount = 5_000, plannedId = "p"))),
+        ))
+        val up = st.withReserved(p, 20_000, oct5)
+        assertEquals(20_000L, up.reserved("p"))
+        assertEquals(st.spendable("2026-10") - 5_000, up.spendable("2026-10"))
+        val down = st.withReserved(p, 8_000, oct5)
+        assertEquals(8_000L, down.reserved("p"))
+        assertEquals(st.spendable("2026-10") + 5_000, down.spendable("2026-10"))   // October's fully released first
+        assertEquals(8_000L, down.plans["2026-09"]!!.lines.single().amount)
+        assertEquals(0L, st.withReserved(p, 0, oct5).reserved("p"))
+    }
+
     @Test fun buyNowDoesNotDoubleCountReservation() {
         val t = Txn(date = "2026-10-05", total = 20_000, plannedId = "p", fromReserve = 5_000)
         assertEquals(15_000L, t.budgetImpact)

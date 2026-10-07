@@ -16,7 +16,7 @@ val keys = Properties().apply { rootProject.file("keystore.properties").takeIf {
 fun key(name: String, env: String): String? = keys.getProperty(name) ?: System.getenv(env)?.takeIf { it.isNotBlank() }
 
 // Version comes from the release tag (-PappVersion=1.2.3). versionCode must grow with it: 1.2.3 → 10203.
-val appVersion = (findProperty("appVersion") as String?)?.removePrefix("v") ?: "1.4.3"
+val appVersion = (findProperty("appVersion") as String?)?.removePrefix("v") ?: "1.4.4"
 val v = appVersion.split(".").map { it.takeWhile(Char::isDigit).toIntOrNull() ?: 0 } + listOf(0, 0, 0)
 
 android {

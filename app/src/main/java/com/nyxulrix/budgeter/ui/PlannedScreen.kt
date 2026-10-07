@@ -21,6 +21,7 @@ import com.nyxulrix.budgeter.data.deletePlanned
 import com.nyxulrix.budgeter.data.periodOf
 import com.nyxulrix.budgeter.data.reserved
 import com.nyxulrix.budgeter.data.savePlanned
+import com.nyxulrix.budgeter.data.setReserved
 import com.nyxulrix.budgeter.data.snapshot
 import java.time.LocalDate
 import java.time.YearMonth
@@ -67,6 +68,17 @@ fun PlannedScreen(st: AppState, id: String?) {
                 KeyValue("Still to reserve", money(left, cur))
                 Small("Reserving the rest now would lower your daily budget by about ${money(left / daysLeft, cur)}.")
                 PixelButton("Reserve", { reserving = true }, Modifier.fillMaxWidth(), kind = Kind.SECONDARY)
+                var setAside by remember(res) { mutableStateOf(plain(res, cur)) }
+                val setV = parseMoney(setAside, cur)
+                PixelField(setAside, { setAside = it }, "Change total set aside ($cur)", keyboard = KeyboardType.Decimal,
+                    error = if (setV == null || setV < 0) "Not a number" else null)
+                if (setV != null && setV >= 0 && setV != res) Small(
+                    if (setV > res) "Sets aside ${money(setV - res, cur)} more this month: daily budget down about ${money((setV - res) / daysLeft, cur)}."
+                    else "Frees ${money(res - setV, cur)}, newest first. What comes back from this month raises your daily budget (up to about ${money((res - setV) / daysLeft, cur)}).",
+                    color = Px.brown,
+                )
+                PixelButton("Set", { App.store.setReserved(existing, setV!!) }, Modifier.fillMaxWidth(),
+                    kind = Kind.SECONDARY, enabled = setV != null && setV >= 0 && setV != res)
             }
             Window("Buy now") {
                 Body("Records ${money(existing.price, cur)} as spent today. The ${money(res, cur)} already reserved isn't counted twice.")
