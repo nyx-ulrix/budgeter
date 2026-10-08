@@ -1,6 +1,9 @@
 package com.nyxulrix.budgeter.ui
 
 import androidx.compose.foundation.background
+import com.nyxulrix.budgeter.core.allocate
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -81,7 +84,7 @@ fun HomeScreen(st: AppState) {
                 if (snap.day.budget > 0) snap.day.spent.toFloat() / snap.day.budget else if (snap.day.spent > 0) 1f else 0f,
                 color = when { snap.day.remaining < 0 -> Px.red; snap.day.dailyLeft < 0 -> Px.yellow; else -> Px.orange },
             )
-            SavedUp(snap.day, cur)
+            SavedUp(snap, cur)
             Sparkline(st, now)
         }
 
@@ -141,27 +144,46 @@ fun HomeScreen(st: AppState) {
 }
 
 /**
- * Money saved up this month: what earlier days left unspent, added up day by day, minus anything already
- * dipped into today. It can be spent any day this month; at month end it becomes savings.
+ * Money saved up this month: what's set aside as savings (savings target and savings lines, less anything dipped into),
+ * plus what earlier days left unspent. The unspent part can be used any day this month; at month end it all becomes savings.
  */
 @Composable
-private fun SavedUp(day: com.nyxulrix.budgeter.core.Day, cur: String) {
-    Row(
+private fun SavedUp(snap: com.nyxulrix.budgeter.data.Snapshot, cur: String) {
+    val day = snap.day
+    val aside = snap.keptAside.coerceAtLeast(0)
+    val unused = day.bonusLeft
+    Column(
         Modifier.fillMaxWidth().frame(Px.cream, width = 2.dp).padding(horizontal = 10.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Art(R.drawable.icon_coin, 22.dp)
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Label("Saved up this month")
-            Small(when {
-                day.bonus <= 0 -> "Spend less than today's budget and the rest builds up here."
-                day.dailyLeft < 0 -> "Using it today: ${money(day.bonus - day.bonusLeft, cur)} of ${money(day.bonus, cur)}."
-                else -> "Unspent from earlier days. Use it any day this month."
-            })
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Art(R.drawable.icon_coin, 22.dp)
+            Label("Saved up this month", Modifier.weight(1f))
+            Text(money(snap.savedUp, cur), style = Type.number, color = if (snap.savedUp > 0) Px.green else Px.muted)
         }
-        Text(money(day.bonusLeft, cur), style = Type.number, color = if (day.bonusLeft > 0) Px.green else Px.muted)
+        // Block bar split by where the savings came from: set aside at the start of the month vs unused from earlier days.
+        val blocks = 20
+        val (a, u) = if (aside + unused > 0) allocate(blocks.toLong(), listOf(aside, unused)).map { it.toInt() } else listOf(0, 0)
+        Row(
+            Modifier.fillMaxWidth().frame(Px.cream).padding(3.dp)
+                .semantics { contentDescription = "${money(aside, cur)} set aside, ${money(unused, cur)} unused from earlier days" },
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            repeat(blocks) { i -> Box(Modifier.weight(1f).height(14.dp).background(when { i < a -> Px.blue; i < a + u -> Px.green; else -> Px.creamLight })) }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Swatch(Px.blue); Small("Set aside ${money(aside, cur)}")
+            Swatch(Px.green); Small("Unused ${money(unused, cur)}")
+        }
+        when {
+            day.bonus > 0 && day.dailyLeft < 0 -> Small("Using unused money today: ${money(day.bonus - day.bonusLeft, cur)} of ${money(day.bonus, cur)}.")
+            day.bonus <= 0 -> Small("Spend less than today's budget and the rest builds up here.")
+        }
     }
 }
+
+@Composable
+private fun Swatch(color: Color) = Box(Modifier.size(10.dp).border(1.dp, Px.brown).background(color))
 
 /** Spent per day for the last 3 days as small bars. */
 @Composable

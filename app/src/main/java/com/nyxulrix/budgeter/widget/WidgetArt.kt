@@ -114,10 +114,10 @@ object WidgetArt {
         val amount = money(day.dailyLeft, st.currency)
         val sp = a.fitSize(amount, a.display, 22f, cam.left - a.l - a.px(10f))
         val color = when { day.remaining < 0 -> RED; day.dailyLeft < 0 -> ORANGE; else -> BROWN }
-        val shift = if (day.bonus > 0) a.px(7f) else 0f
+        val shift = if (snap.savedUp > 0) a.px(7f) else 0f
         a.text("LEFT TODAY", a.l, cy - a.px(4f) - a.px(sp) / 2 - shift, a.label, 10f, BROWN)
         a.text(amount, a.l, cy + a.px(6f) + a.px(sp) / 2 - shift, a.display, sp, color)
-        if (day.bonus > 0) a.text("+${money(day.bonusLeft, st.currency)} saved up", a.l, cy + a.px(20f) + a.px(sp) / 2 - shift, a.body, 15f, GREEN)
+        if (snap.savedUp > 0) a.text("+${money(snap.savedUp, st.currency)} saved up", a.l, cy + a.px(20f) + a.px(sp) / 2 - shift, a.body, 15f, GREEN)
         return a.bmp
     }
 

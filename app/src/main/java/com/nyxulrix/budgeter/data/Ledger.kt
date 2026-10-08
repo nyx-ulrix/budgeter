@@ -70,6 +70,7 @@ data class Snapshot(
     val fixed: Long = 0,
     val categories: Map<String, Long> = emptyMap(),
     val target: Long = 0,                              // savings target, a buffer past spendable
+    val saving: Long = 0,                              // this month's savings lines (money moved to savings)
 ) {
     val left: Long get() = spendable - spent
     /** Spent past the spendable money and into the savings target. */
@@ -78,6 +79,10 @@ data class Snapshot(
     val over: Boolean get() = spent > spendable + target
     /** How much of the savings target has been spent. */
     val dipped: Long get() = (spent - spendable).coerceIn(0, target)
+    /** Set aside as savings this month and not spent: savings lines plus whatever of the target is left. */
+    val keptAside: Long get() = saving + target - dipped
+    /** The "Saved up this month" number: what's kept aside plus what earlier days left unspent. */
+    val savedUp: Long get() = keptAside + day.bonusLeft
     val fraction: Float get() = if (spendable <= 0) 1f else (spent.toFloat() / spendable).coerceIn(0f, 1f)
 }
 
@@ -105,7 +110,7 @@ fun AppState.snapshot(date: LocalDate = LocalDate.now()): Snapshot {
     val monthlyToday = onDay.sumOf { it.budgetImpact } - dailyToday
     val spent = inP.sumOf { it.budgetImpact }
     return Snapshot(p, spendable, spent, today(spendable, before + monthlyToday, dailyToday, date, p), pace(spendable, spent, date, p),
-        planFor(p.key).total(LineKind.FIXED), byCategory(p), planFor(p.key).savingsTarget)
+        planFor(p.key).total(LineKind.FIXED), byCategory(p), planFor(p.key).savingsTarget, planFor(p.key).total(LineKind.SAVINGS))
 }
 
 /** Budget-impact per category in a period. Itemised bills with per-item categories are split across them. */

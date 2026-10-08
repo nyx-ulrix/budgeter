@@ -63,6 +63,15 @@ class LedgerTest {
         assertEquals(40_000L, budgeted.withReserved(p, 30_000, oct5).spendable("2026-10"))
     }
 
+    @Test fun savedUpIsKeptAsidePlusUnspentDays() {
+        val plan = Plan(310_000, listOf(Line(kind = LineKind.SAVINGS, name = "Save", amount = 20_000)), savingsTarget = 31_000)
+        // spendable 310000 - 20000 - 31000 = 259000 → 8354 a day; 4 days before Oct 5 = 33416, 10000 spent → 23416 unspent
+        val s = AppState(setup, plans = mapOf("2026-10" to plan), txns = listOf(Txn(date = "2026-10-02", total = 10_000))).snapshot(oct5)
+        assertEquals(51_000L, s.keptAside)
+        assertEquals(51_000L + s.day.bonusLeft, s.savedUp)
+        assertEquals(23_416L, s.day.bonusLeft)
+    }
+
     @Test fun buyNowDoesNotDoubleCountReservation() {
         val t = Txn(date = "2026-10-05", total = 20_000, plannedId = "p", fromReserve = 5_000)
         assertEquals(15_000L, t.budgetImpact)

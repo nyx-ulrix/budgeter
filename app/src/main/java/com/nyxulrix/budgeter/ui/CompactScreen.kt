@@ -64,7 +64,7 @@ fun CompactScreen(st: AppState, adding: Boolean = false, onDone: () -> Unit = {}
             Column(Modifier.weight(1f)) {
                 Text("TODAY", style = Type.label, color = Px.creamLight)
                 Text(money(snap.day.dailyLeft, cur), style = Type.number.copy(fontSize = 14.sp), color = if (snap.day.dailyLeft < 0) Px.white else Px.creamLight)
-                if (snap.day.bonus > 0) Text("+${money(snap.day.bonusLeft, cur)} saved up", style = Type.small, color = Px.creamLight)
+                if (snap.savedUp > 0) Text("+${money(snap.savedUp, cur)} saved up", style = Type.small, color = Px.creamLight)
             }
         }
         if (add) {
