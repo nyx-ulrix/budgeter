@@ -23,15 +23,20 @@ fun Store.saveTxn(t: Txn) = update { st ->
     st.copy(txns = if (st.txns.any { it.id == t.id }) st.txns.map { if (it.id == t.id) stamped else it } else st.txns + stamped)
 }
 
-/** Marks deleted so the removal can reach Sheets; synced-or-never-synced tombstones are purged by sync. */
+/** Removes [t]: dropped outright if it never reached Sheets and sync is off, otherwise a tombstone sync can carry. */
+private fun AppState.tombstone(t: Txn): Txn? =
+    if (t.syncedAt == null && !sync.enabled) null else t.copy(deleted = true, updatedAt = System.currentTimeMillis())
+
+/**
+ * Deletes a transaction. Deleting a planned item's "Buy now" expense puts the item back on the list,
+ * with its reservations, so that money isn't left neither spent nor free.
+ */
 fun Store.deleteTxn(id: String) = update { st ->
-    st.copy(txns = st.txns.mapNotNull { t ->
-        when {
-            t.id != id -> t
-            t.syncedAt == null && !st.sync.enabled -> null
-            else -> t.copy(deleted = true, updatedAt = System.currentTimeMillis())
-        }
-    })
+    val plannedId = st.txns.firstOrNull { it.id == id }?.plannedId
+    st.copy(
+        txns = st.txns.mapNotNull { t -> if (t.id != id) t else st.tombstone(t) },
+        planned = st.planned.map { if (plannedId != null && it.id == plannedId) it.copy(status = PlannedStatus.OPEN) else it },
+    )
 }
 
 // Planned purchases
@@ -62,8 +67,9 @@ fun AppState.withReserved(p: Planned, total: Long, today: LocalDate): AppState {
 }
 
 /** Buys now: one expense for the full price; the part already reserved isn't counted twice. */
-fun Store.buyNow(p: Planned, category: String) = update { st ->
-    val reserved = st.reserved(p.id).coerceAtMost(p.price)
+fun Store.buyNow(p: Planned, category: String) = update { old ->
+    val st = if (old.reserved(p.id) > p.price) old.withReserved(p, p.price, LocalDate.now()) else old   // free any excess first
+    val reserved = st.reserved(p.id)
     val txn = Txn(date = LocalDate.now().toString(), total = p.price, category = category, merchant = p.name,
         note = "Planned purchase", plannedId = p.id, fromReserve = reserved)
     st.copy(
@@ -132,7 +138,7 @@ fun Store.saveTrip(t: Trip) = update { st -> st.copy(trips = st.trips.map { if (
 fun Store.deleteTrip(id: String) = update { st ->
     st.copy(
         trips = st.trips.filterNot { it.id == id },
-        txns = st.txns.map { if (it.tripId == id) it.copy(deleted = true, updatedAt = System.currentTimeMillis()) else it },
+        txns = st.txns.mapNotNull { if (it.tripId == id) st.tombstone(it) else it },
         plans = st.plans.mapValues { (_, p) -> p.copy(lines = p.lines.filterNot { it.tripId == id }) },
     )
 }

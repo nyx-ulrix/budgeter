@@ -22,6 +22,7 @@ import com.nyxulrix.budgeter.data.json
 import com.nyxulrix.budgeter.data.periodOf
 import com.nyxulrix.budgeter.data.personLabel
 import com.nyxulrix.budgeter.data.setSync
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -222,6 +223,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
             val auth: AuthorizationResult = try {
                 Identity.getAuthorizationClient(ctx).authorize(authRequest).await()
             } catch (e: Exception) {
+                if (e is CancellationException) throw e   // a newer change restarted the sync; not a failure
                 return pause("Google sign-in failed: ${e.message}")
             }
             if (auth.hasResolution()) return pause("Google needs you to sign in again.")
@@ -238,6 +240,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
             } catch (e: IOException) {
                 Result.retry()
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 pause("Sync failed: ${e.message ?: e.javaClass.simpleName}")
             }
         }

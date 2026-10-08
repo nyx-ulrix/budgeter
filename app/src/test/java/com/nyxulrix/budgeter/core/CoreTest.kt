@@ -44,26 +44,34 @@ class CoreTest {
 
     @Test fun dailyBudgetAdjustsAfterOverspend() {
         val p = periodOf(LocalDate.of(2026, 10, 1), 1)            // 31 days
-        val d1 = today(31_000, 0, 5_000, LocalDate.of(2026, 10, 1), p)
+        val d1 = today(31_000, emptyList(), 5_000, 0, LocalDate.of(2026, 10, 1), p)
         assertEquals(1_000L, d1.budget)
         assertEquals(-4_000L, d1.remaining)
-        val d2 = today(31_000, 5_000, 0, LocalDate.of(2026, 10, 2), p)  // 30 days left
+        val d2 = today(31_000, listOf(DaySpend(5_000)), 0, 0, LocalDate.of(2026, 10, 2), p)  // 30 days left
         assertEquals(866L, d2.budget)
-        val broke = today(1_000, 5_000, 100, LocalDate.of(2026, 10, 2), p)
+        val broke = today(1_000, listOf(DaySpend(5_000)), 100, 0, LocalDate.of(2026, 10, 2), p)
         assertEquals(0L, broke.budget)
-        val last = today(31_000, 30_000, 0, LocalDate.of(2026, 10, 31), p)
+        val last = today(31_000, List(30) { DaySpend(1_000) }, 0, 0, LocalDate.of(2026, 10, 31), p)
         assertEquals(1_000L, last.budget)
         // Underspending carries forward as a bonus: 2 days × 1000 base − 500 spent = 1500 saved up.
-        val saver = today(31_000, 500, 0, LocalDate.of(2026, 10, 3), p)
+        val saver = today(31_000, listOf(DaySpend(500), DaySpend(0)), 0, 0, LocalDate.of(2026, 10, 3), p)
         assertEquals(1_000L, saver.budget)
         assertEquals(1_500L, saver.bonus)
         assertEquals(2_500L, saver.remaining)
-        assertEquals(0L, today(31_000, 500, 0, LocalDate.of(2026, 10, 1), p).bonus)   // nothing before day 1
+        assertEquals(0L, today(31_000, emptyList(), 0, 0, LocalDate.of(2026, 10, 1), p).bonus)   // nothing before day 1
         // Headline shows only today's own budget; spending past it uses the saved-up bonus first.
-        val dipped = today(31_000, 500, 1_400, LocalDate.of(2026, 10, 3), p)
+        val dipped = today(31_000, listOf(DaySpend(500), DaySpend(0)), 1_400, 0, LocalDate.of(2026, 10, 3), p)
         assertEquals(-400L, dipped.dailyLeft)
         assertEquals(1_100L, dipped.bonusLeft)
         assertEquals(1_100L, dipped.remaining)
+        // Regression: an overspent day doesn't stop a later unused day from carrying forward.
+        val after = today(31_000, listOf(DaySpend(1_500), DaySpend(790)), 0, 0, LocalDate.of(2026, 10, 3), p)
+        assertEquals(983L, after.budget)
+        assertEquals(193L, after.bonus)
+        // Groceries eat the leftovers first, then lower the remaining days.
+        val groceries = today(31_000, listOf(DaySpend(0), DaySpend(0, monthly = 2_500)), 0, 0, LocalDate.of(2026, 10, 3), p)
+        assertEquals(0L, groceries.bonus)
+        assertEquals(982L, groceries.budget)
     }
 
     @Test fun pacing() {

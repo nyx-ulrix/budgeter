@@ -47,7 +47,10 @@ object Ocr {
         val (sin, cos) = kotlin.math.sin(slant) to kotlin.math.cos(slant)
         fun y(l: com.google.mlkit.vision.text.Text.Line) = l.boundingBox!!.let { -it.exactCenterX() * sin + it.exactCenterY() * cos }
         fun x(l: com.google.mlkit.vision.text.Text.Line) = l.boundingBox!!.let { it.exactCenterX() * cos + it.exactCenterY() * sin }
-        val heights = lines.map { it.boundingBox!!.height() * cos }.sorted()
+        val heights = lines.map { l ->
+            l.cornerPoints?.takeIf { it.size >= 4 }?.let { kotlin.math.hypot((it[3].x - it[0].x).toDouble(), (it[3].y - it[0].y).toDouble()) }
+                ?: l.boundingBox!!.height().toDouble()
+        }.sorted()
         val tolerance = heights[heights.size / 2] * 0.6
         val rows = mutableListOf<MutableList<com.google.mlkit.vision.text.Text.Line>>()
         for (l in lines.sortedBy { y(it) }) {

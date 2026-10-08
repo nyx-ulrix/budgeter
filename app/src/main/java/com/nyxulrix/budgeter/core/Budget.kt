@@ -25,7 +25,6 @@ fun periodOf(date: LocalDate, startDay: Int): Period {
     return Period(start, start.plusMonths(1))
 }
 
-/** Today's budget is fixed at the start of the day; spending today only lowers what's left of it. */
 /**
  * Today's money: a [budget] for the day plus a soft [bonus] saved up from earlier days this month.
  * Spending into the bonus isn't overspending; only going past both is.
@@ -40,18 +39,28 @@ data class Day(val budget: Long, val spent: Long, val bonus: Long = 0) {
     val bonusLeft: Long get() = (bonus - (spent - budget).coerceAtLeast(0)).coerceAtLeast(0)
 }
 
+/** One earlier day's spending: what used the day's budget, and monthly-category spending (groceries, bills). */
+data class DaySpend(val daily: Long, val monthly: Long = 0)
+
 /**
- * Each day's base is [spendable] spread evenly over the month. What earlier days didn't use carries forward as a
- * bonus you can spend on any later day this month (it never crosses into next month; month-end leftovers become
- * savings). If earlier days overspent instead, the shortfall is spread over the days left, lowering each one a little.
+ * Replays the period day by day. Each day's budget is the month's unspent money (less earlier days' leftovers) spread
+ * over the days left, so an unused day keeps later budgets steady and its leftover shows as the [Day.bonus].
+ * Overspending and monthly-category spending use up the leftovers first, then lower every remaining day.
+ * Leftovers never cross the period end; month-end leftovers become savings.
+ * ponytail: replays from today's [spendable], so changing the budget mid-month re-scores earlier days; store spendable per day if that matters.
  */
-fun today(spendable: Long, spentBeforeToday: Long, spentToday: Long, date: LocalDate, period: Period): Day {
-    val daysLeft = ChronoUnit.DAYS.between(date, period.end).coerceAtLeast(1)
-    val daysBefore = ChronoUnit.DAYS.between(period.start, date).coerceIn(0, period.days.toLong())
-    val base = spendable.coerceAtLeast(0) / period.days
-    val unused = base * daysBefore - spentBeforeToday
-    return if (unused >= 0) Day(base, spentToday, unused)
-    else Day((spendable - spentBeforeToday).coerceAtLeast(0) / daysLeft, spentToday)
+fun today(spendable: Long, before: List<DaySpend>, spentToday: Long, monthlyToday: Long, date: LocalDate, period: Period): Day {
+    var pool = spendable.coerceAtLeast(0)   // month's money not yet spent
+    var bonus = 0L                           // of which: earlier days' leftovers
+    var d = period.start
+    for (s in before) {
+        val budget = (pool - bonus).coerceAtLeast(0) / ChronoUnit.DAYS.between(d, period.end).coerceAtLeast(1)
+        pool = (pool - s.daily - s.monthly).coerceAtLeast(0)
+        bonus = (bonus + budget - s.daily - s.monthly).coerceIn(0, pool)
+        d = d.plusDays(1)
+    }
+    val budget = (pool - bonus).coerceAtLeast(0) / ChronoUnit.DAYS.between(date, period.end).coerceAtLeast(1)
+    return Day(budget, spentToday, (bonus - monthlyToday).coerceIn(0, pool))
 }
 
 /** Spending speed against an even pace through the month. Being over the whole budget is separate ([Snapshot.over]). */

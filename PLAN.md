@@ -72,9 +72,12 @@ app/src/main/java/com/nyxulrix/budgeter/
 - This tracks consumption, not cash leaving the account. Flagged for confirmation.
 
 ### 3.3 Daily budget
-- `Today's budget = (Spendable − spent before today) / days left in period including today`
-- Fixed for the whole day. Overspend today lowers tomorrow's automatically.
-- `Remaining today = Today's budget − spent today`
+The period is replayed day by day from its first day (`today()` in `core/Budget.kt`):
+- `Day's budget = (money not yet spent − unused leftovers) / days left including that day`
+- A day that spends less than its budget adds the difference to the leftovers ("Unused" in Saved up this month). Later budgets stay the same.
+- Spending past the budget uses the leftovers first. Past those, and any Groceries/Bills (monthly categories) spending, lowers every remaining day.
+- Leftovers stay within the period; whatever is left at the end becomes savings.
+- Fixed for the whole day. `Left to spend today = today's budget − spent today`. The leftovers are shown separately.
 
 ### 3.4 Pacing
 - `Expected by now = Spendable × days elapsed including today / days in period`

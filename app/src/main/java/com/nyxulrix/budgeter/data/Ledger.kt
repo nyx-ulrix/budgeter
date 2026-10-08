@@ -1,5 +1,6 @@
 package com.nyxulrix.budgeter.data
 
+import com.nyxulrix.budgeter.core.DaySpend
 import com.nyxulrix.budgeter.core.Day
 import com.nyxulrix.budgeter.core.Pace
 import com.nyxulrix.budgeter.core.Period
@@ -8,6 +9,7 @@ import com.nyxulrix.budgeter.core.pace
 import com.nyxulrix.budgeter.core.periodOf
 import com.nyxulrix.budgeter.core.today
 import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 
 /** Derived numbers. Pure functions of [AppState], so screens and widgets agree. */
 
@@ -104,12 +106,15 @@ fun AppState.snapshot(date: LocalDate = LocalDate.now()): Snapshot {
     val p = periodOf(date)
     val spendable = spendable(p.key)
     val inP = txns.filter { it.inBudget(p) }
-    val before = inP.filter { LocalDate.parse(it.date).isBefore(date) }.sumOf { it.budgetImpact }
-    val onDay = inP.filter { LocalDate.parse(it.date) == date }
-    val dailyToday = onDay.sumOf { dailyImpact(it) }
-    val monthlyToday = onDay.sumOf { it.budgetImpact } - dailyToday
+    val byDay = inP.groupBy { it.date }
+    fun spend(d: LocalDate) = byDay[d.toString()].orEmpty().let { ts ->
+        val daily = ts.sumOf { dailyImpact(it) }
+        DaySpend(daily, ts.sumOf { it.budgetImpact } - daily)
+    }
+    val before = (0 until ChronoUnit.DAYS.between(p.start, date).coerceAtLeast(0)).map { spend(p.start.plusDays(it)) }
+    val now = spend(date)
     val spent = inP.sumOf { it.budgetImpact }
-    return Snapshot(p, spendable, spent, today(spendable, before + monthlyToday, dailyToday, date, p), pace(spendable, spent, date, p),
+    return Snapshot(p, spendable, spent, today(spendable, before, now.daily, now.monthly, date, p), pace(spendable, spent, date, p),
         planFor(p.key).total(LineKind.FIXED), byCategory(p), planFor(p.key).savingsTarget, planFor(p.key).total(LineKind.SAVINGS))
 }
 

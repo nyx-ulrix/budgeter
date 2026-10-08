@@ -113,7 +113,7 @@ private fun draftFrom(st: AppState, s: Screen.Expense): Draft {
             val paid = t.foreign?.amount ?: t.total
             d.paidCur = cur; d.rate = (t.foreign?.rate ?: 1.0).toString()
             d.itemised = t.items.isNotEmpty()
-            d.amount = plain(if (t.items.isEmpty()) paid else paid - t.serviceCharge - (if (t.taxIncluded) 0 else t.tax), cur)
+            d.amount = plain(if (t.items.isEmpty()) paid else paid - t.serviceCharge - (if (t.taxIncluded) 0 else t.tax) + t.discount, cur)
             d.tax = if (t.tax != 0L) plain(t.tax, cur) else ""
             d.service = if (t.serviceCharge != 0L) plain(t.serviceCharge, cur) else ""
             d.discount = if (t.discount != 0L) plain(t.discount, cur) else ""
