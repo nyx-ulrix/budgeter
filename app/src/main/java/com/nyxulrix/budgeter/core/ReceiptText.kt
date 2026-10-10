@@ -21,15 +21,58 @@ object ReceiptText {
     private val qtyPrefix = Regex("""^(\d{1,2})\s*[xX@]?\s+(.*[A-Za-z].*)$""")
     private val skip = Regex("""\b(CHANGE|CASH|TENDER|VISA|MASTER|AMEX|NETS|PAYNOW|CARD|PAID|PAYMENT|ROUNDING|ITEMS?\s*COUNT|QTY)\b""")
     // OCR often reads TOTAL's last letter as 1, I, |, O or 0 ("Net Tota1", "Subtotao"), so those count too.
-    private const val TOTAL = """T[O0]TA[L1I|!O0]"""
-    private val subtotalWord = Regex("""SUB\s*-?\s*$TOTAL""")
-    private val totalWord = Regex("""\b(GRAND\s+$TOTAL|$TOTAL|AMOUNT\s+DUE|NETT|BALANCE\s+DUE)""")
-    private val serviceWord = Regex("""\b(SERVICE|SVC|SVR|S/C|SC)\b""")
+    private const val TOTAL = """T[O0]TA[L1I|!O0\]]"""
+    private val subtotalWord = Regex("""SUB\s*-?\s*(T[O0E]T|$TOTAL)""")   // "Sub Teta )" too
+    private val totalWord = Regex("""\b(GRAND|$TOTAL|AMOUNT\s+DUE|NETT|BALANCE)""")
+    private val serviceWord = Regex("""\b(SERVICE|SERV|SVC|SVR|S/C|SC|CHG|CHRG)\b""")
     private val taxWord = Regex("""\b(GST|TAX|VAT|SST)\b""")
     private val discountWord = Regex("""\b(DISC|DISCOUNT|LESS|PROMO|VOUCHER)\b""")
     private val inclusive = Regex("""INCL|INCLUSIVE|INCLUDES|INCLUDED""")
     /** Section headers like "*** Retail/Takeaway ***" or "== DINE IN ==": never items. */
     private val banner = Regex("""^[*=#~-]{2,}.*[*=#~-]{2,}$""")
+
+    /** Subtotal, total and payment lines: never items, whoever read the receipt. */
+    fun isSummary(name: String): Boolean =
+        name.uppercase().let { subtotalWord.containsMatchIn(it) || totalWord.containsMatchIn(it) || skip.containsMatchIn(it) }
+
+    /** One recognised line of text: centre, size and slant (radians) in image pixels. */
+    data class Seg(val text: String, val cx: Double, val cy: Double, val w: Double, val h: Double, val angle: Double)
+
+    private val priceOnly = Regex("""^(?:S\$|RM|US\$|SGD|MYR|\$)?\s*-?\s*\$?\d[\d,]*[.,]\d{2,3}\s*-?\s*[A-Z*#]?$""")
+
+    /**
+     * Joins OCR lines into printed rows. Words on the same row are grouped first; then each price-only line goes to the
+     * row whose own slant, carried across to the price, passes closest to it. A curled or tilted receipt then keeps
+     * "Svc Chg 10%" with 5.65 instead of the price drifting onto the GST row below.
+     * ponytail: price-only lines need decimals, so whole-number prices (yen) fall back to plain row grouping.
+     */
+    fun joinRows(segs: List<Seg>): String {
+        if (segs.isEmpty()) return ""
+        val pitch = segs.map { it.h }.sorted()[segs.size / 2]
+        val slant = segs.filter { it.w > 3 * it.h }.map { it.angle }.sorted().let { if (it.isEmpty()) 0.0 else it[it.size / 2] }
+        val (sin, cos) = kotlin.math.sin(slant) to kotlin.math.cos(slant)
+        fun ry(s: Seg) = -s.cx * sin + s.cy * cos
+        val (prices, words) = segs.partition { priceOnly.matches(it.text.trim().uppercase()) }
+        val rows = mutableListOf<MutableList<Seg>>()
+        for (s in words.sortedBy(::ry)) {
+            val row = rows.lastOrNull()
+            if (row != null && kotlin.math.abs(ry(row.first()) - ry(s)) <= pitch * 0.5) row += s else rows += mutableListOf(s)
+        }
+        // How far the price sits from the row's baseline carried across to it; the row's widest piece sets the slant.
+        fun miss(row: List<Seg>, p: Seg): Double {
+            val l = row.maxBy { it.w }
+            val a = if (l.w > 3 * l.h) l.angle else slant
+            return kotlin.math.abs(p.cy - (l.cy + (p.cx - l.cx) * kotlin.math.tan(a)))
+        }
+        val pairs = prices.flatMap { p -> rows.indices.filter { r -> rows[r].all { it.cx < p.cx } }.map { r -> Triple(p, r, miss(rows[r], p)) } }
+            .filter { it.third < pitch * 0.75 }.sortedBy { it.third }
+        val priceOf = mutableMapOf<Int, Seg>()
+        val used = mutableSetOf<Seg>()
+        for ((p, r, _) in pairs) if (p !in used && r !in priceOf) { priceOf[r] = p; used += p }
+        val out = rows.mapIndexed { r, row -> ry(row.first()) to (row.sortedBy { it.cx } + listOfNotNull(priceOf[r])).joinToString("   ") { it.text } } +
+            prices.filter { it !in used }.map { ry(it) to it.text }
+        return out.sortedBy { it.first }.joinToString("\n") { it.second }
+    }
 
     private fun item(name: String, amount: Long) =
         qtyPrefix.find(name)?.let { ReceiptItem(it.groupValues[2].trim(), amount, it.groupValues[1].toInt()) } ?: ReceiptItem(name, amount)

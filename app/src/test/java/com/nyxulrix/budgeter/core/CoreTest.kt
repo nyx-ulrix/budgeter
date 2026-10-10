@@ -177,6 +177,33 @@ class CoreTest {
         assertEquals(790L, misread.subtotal)
     }
 
+    @Test fun joinsTiltedRowsBySlant() {
+        // Rows 36 px apart, text tilted so the right column drops 30 px: plain height grouping would pair each
+        // price with the label below it. Labels are wide (their own slant counts); "GST 9%" is short (uses the median).
+        val tilt = kotlin.math.atan(0.1)
+        fun label(t: String, y: Double, w: Double = 150.0) = ReceiptText.Seg(t, 100.0, y, w, 30.0, tilt)
+        fun price(t: String, y: Double) = ReceiptText.Seg(t, 400.0, y + 30, 60.0, 30.0, tilt)
+        val segs = listOf(
+            label("Dumpling Party of 15", 64.0), price("28.00", 64.0),
+            label("XO Prawn Noodles", 100.0), price("13.00", 100.0),
+            label("Sub Teta )", 136.0), price("41.00", 136.0),
+            label("Svc Chg 10%", 172.0), price("4.10", 172.0),
+            label("GST 9%", 208.0, w = 60.0), price("4.06", 208.0),
+            label("Grand Tota]", 244.0), price("49.16", 244.0),
+            label("Balance", 280.0, w = 100.0), price("49.16", 280.0),
+        )
+        val rows = ReceiptText.joinRows(segs.shuffled(java.util.Random(1)))
+        assertEquals("Svc Chg 10%   4.10", rows.lines()[3])
+        val r = ReceiptText.parse("SHOP\n$rows", "SGD")
+        assertEquals(listOf("Dumpling Party of 15", "XO Prawn Noodles"), r.items.map { it.name })
+        assertEquals(4_100L, r.subtotal)
+        assertEquals(410L, r.serviceCharge)
+        assertEquals(406L, r.tax)
+        assertEquals(4_916L, r.total)
+        assertEquals(0L, r.mismatch)
+        assertTrue(ReceiptText.isSummary("Grand Tota]"))
+    }
+
     @Test fun findsDates() {
         assertEquals("2026-10-06", ReceiptText.findDate("2026-10-06 10:00"))
         assertEquals("2026-10-06", ReceiptText.findDate("6 Oct 2026"))

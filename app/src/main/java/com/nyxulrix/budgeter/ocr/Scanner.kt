@@ -32,33 +32,20 @@ import java.io.File
 
 /** On-device text recognition. The image is read on the phone and never uploaded. */
 object Ocr {
-    /**
-     * Recognised text as printed rows: ML Kit lines that sit at the same height are joined left to right.
-     * Heights are measured along the text's own slant, so a tilted photo doesn't pull a price onto the row above.
-     */
+    /** Recognised text as printed rows (see [ReceiptText.joinRows]). Read on the phone; the image never leaves it. */
     suspend fun rows(ctx: Context, uri: Uri): String {
         val image = InputImage.fromFilePath(ctx, uri)
         val result = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS).process(image).await()
-        val lines = result.textBlocks.flatMap { it.lines }.filter { it.boundingBox != null }
-        if (lines.isEmpty()) return result.text
-        val slant = lines.mapNotNull { l ->
-            l.cornerPoints?.takeIf { it.size >= 2 && it[1].x - it[0].x > 20 }?.let { kotlin.math.atan2((it[1].y - it[0].y).toDouble(), (it[1].x - it[0].x).toDouble()) }
-        }.sorted().let { if (it.isEmpty()) 0.0 else it[it.size / 2] }
-        val (sin, cos) = kotlin.math.sin(slant) to kotlin.math.cos(slant)
-        fun y(l: com.google.mlkit.vision.text.Text.Line) = l.boundingBox!!.let { -it.exactCenterX() * sin + it.exactCenterY() * cos }
-        fun x(l: com.google.mlkit.vision.text.Text.Line) = l.boundingBox!!.let { it.exactCenterX() * cos + it.exactCenterY() * sin }
-        val heights = lines.map { l ->
-            l.cornerPoints?.takeIf { it.size >= 4 }?.let { kotlin.math.hypot((it[3].x - it[0].x).toDouble(), (it[3].y - it[0].y).toDouble()) }
-                ?: l.boundingBox!!.height().toDouble()
-        }.sorted()
-        val tolerance = heights[heights.size / 2] * 0.6
-        val rows = mutableListOf<MutableList<com.google.mlkit.vision.text.Text.Line>>()
-        for (l in lines.sortedBy { y(it) }) {
-            val row = rows.lastOrNull()
-            if (row != null && kotlin.math.abs(y(row.first()) - y(l)) <= tolerance) row += l
-            else rows += mutableListOf(l)
+        val segs = result.textBlocks.flatMap { it.lines }.mapNotNull { l ->
+            val c = l.cornerPoints?.takeIf { it.size >= 4 } ?: return@mapNotNull null
+            ReceiptText.Seg(
+                l.text, c.sumOf { it.x } / 4.0, c.sumOf { it.y } / 4.0,
+                w = kotlin.math.hypot((c[1].x - c[0].x).toDouble(), (c[1].y - c[0].y).toDouble()),
+                h = kotlin.math.hypot((c[3].x - c[0].x).toDouble(), (c[3].y - c[0].y).toDouble()),
+                angle = kotlin.math.atan2((c[1].y - c[0].y).toDouble(), (c[1].x - c[0].x).toDouble()),
+            )
         }
-        return rows.joinToString("\n") { r -> r.sortedBy { it.boundingBox!!.left }.joinToString("   ") { it.text } }
+        return if (segs.isEmpty()) result.text else ReceiptText.joinRows(segs)
     }
 }
 

@@ -105,7 +105,9 @@ Rules:
 - If a service charge is already inside item prices and not printed as its own line, service_charge is 0.
 - Ignore payment, card, cash, change, rounding and loyalty-point lines.
 - Section headers such as "*** Retail/Takeaway ***" or "== Dine in ==" are not items. If a price sits on a header row, it belongs to the item printed next to it.
-- Subtotal, total, net total and tax lines are never items, even when the OCR misspells them (e.g. "Subtotao", "Net Tota1").
+- Items are only the things bought. Their prices should add up to the printed subtotal; a line whose amount equals the sum of the items above it is a subtotal or total, not an item.
+- Service charge is often printed as "Svc Chg", "S/C" or "Service Charge 10%", usually just before GST. Take each charge from its own label, not from the line next to it.
+- Subtotal, total, grand total, balance, net total and tax lines are never items, even when the OCR misspells them (e.g. "Subtotao", "Net Tota1").
 - Numbers are plain decimals without currency symbols or thousands separators.
 - Dates on receipts are usually day-first unless that is impossible."""
 
@@ -145,7 +147,7 @@ Rules:
             merchant = d.merchant.orEmpty(),
             date = d.date?.takeIf { Regex("""\d{4}-\d{2}-\d{2}""").matches(it) },
             currency = d.currency?.uppercase()?.takeIf { it.length == 3 },
-            items = d.items.map { ReceiptItem(it.name, m(it.price) ?: 0, (it.qty ?: 1).coerceAtLeast(1)) },
+            items = d.items.filterNot { ReceiptText.isSummary(it.name) }.map { ReceiptItem(it.name, m(it.price) ?: 0, (it.qty ?: 1).coerceAtLeast(1)) },
             discount = kotlin.math.abs(m(d.discount) ?: 0),
             subtotal = m(d.subtotal),
             serviceCharge = m(d.serviceCharge) ?: 0,
