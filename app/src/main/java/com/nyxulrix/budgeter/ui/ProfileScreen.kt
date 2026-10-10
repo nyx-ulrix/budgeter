@@ -118,7 +118,7 @@ fun AiScreen() {
     Page {
         PageHeader("AI")
         Window("How it works") {
-            Body("Photos are read on your phone. Only the text goes to the AI you pick, to sort it into items, tax and service charge.")
+            Body("Receipt photos are sent to the AI you pick, to read them into items, tax and service charge. If it can't read photos, only the text your phone reads is sent.")
             Small("With no AI picked, the built-in reader is used. It's free and offline, but less accurate.")
         }
         Window("Your AI logins") {

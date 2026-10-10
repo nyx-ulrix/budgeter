@@ -138,7 +138,7 @@ Camera (CameraX) or screenshot picker
   → save transaction
 ```
 
-Images never leave the phone.
+Since 1.5.3 (user's call, 2026-10-10): with an AI provider selected, the receipt photo itself is sent to it (JPEG, max 1600 px). Text-only AI and the built-in reader are the fallbacks. Without a provider, images never leave the phone.
 
 ---
 

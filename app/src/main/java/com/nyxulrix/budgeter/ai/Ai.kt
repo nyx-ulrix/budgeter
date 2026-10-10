@@ -91,7 +91,7 @@ object Ai {
 
     fun hasKey(ctx: Context, p: Provider) = Secrets.get(ctx, "key_${p.id}") != null
 
-    private const val SYSTEM = """You read receipt text produced by OCR and return JSON only, no prose, no code fences.
+    private const val SYSTEM = """You read a receipt (a photo, or text produced by OCR) and return JSON only, no prose, no code fences.
 Schema:
 {"merchant": string, "date": "YYYY-MM-DD" or null, "currency": ISO 4217 code or null,
  "items": [{"name": string, "qty": integer, "price": number}],
@@ -130,14 +130,15 @@ Rules:
     private data class ItemDto(val name: String = "", val qty: Int? = null, val price: Double = 0.0)
 
     /**
-     * Turns OCR text into a [ParsedReceipt] with [p], or with the built-in rules when [p] is null.
-     * Only text is sent; images never leave the phone. Throws with a readable message on AI failure.
+     * Turns a receipt into a [ParsedReceipt] with [p], or with the built-in rules on the OCR [text] when [p] is null.
+     * With a [photo] (JPEG data URL) the AI reads the photo itself; otherwise it gets the OCR text.
+     * Throws with a readable message on AI failure.
      */
-    suspend fun parse(ctx: Context, p: Provider?, text: String, fallbackCurrency: String, categories: List<String>): ParsedReceipt {
+    suspend fun parse(ctx: Context, p: Provider?, text: String, fallbackCurrency: String, categories: List<String>, photo: String? = null): ParsedReceipt {
         if (p == null) return ReceiptText.parse(text, fallbackCurrency)
         val system = SYSTEM + "\n- Add \"category\": the one best fit for the whole receipt from this list, spelled exactly: " +
             categories.joinToString(", ") + ". Use \"Other\" only if nothing fits."
-        val reply = chat(ctx, p, system, text)
+        val reply = chat(ctx, p, system, if (photo != null) "Read this receipt photo." else text, photo)
         val a = reply.indexOf('{'); val b = reply.lastIndexOf('}')
         val obj = if (a >= 0 && b > a) reply.substring(a, b + 1) else ""
         val d = runCatching { json.decodeFromString(Dto.serializer(), obj) }.getOrElse { throw Exception("${p.label} didn't return receipt data. Try again or use the built-in reader.") }
@@ -158,14 +159,21 @@ Rules:
         )
     }
 
-    /** One chat completion; returns the reply text. */
-    suspend fun chat(ctx: Context, p: Provider, system: String, user: String): String = withContext(Dispatchers.IO) {
+    /** One chat completion; returns the reply text. [image] is a data URL sent with the user message. */
+    suspend fun chat(ctx: Context, p: Provider, system: String, user: String, image: String? = null): String = withContext(Dispatchers.IO) {
         val key = Secrets.get(ctx, "key_${p.id}") ?: throw Exception("${p.label} has no key saved. Add it in Profile → AI.")
         val body = buildJsonObject {
             put("model", p.model)
             put("messages", buildJsonArray {
                 add(buildJsonObject { put("role", "system"); put("content", system) })
-                add(buildJsonObject { put("role", "user"); put("content", user) })
+                add(buildJsonObject {
+                    put("role", "user")
+                    if (image == null) put("content", user)
+                    else put("content", buildJsonArray {
+                        add(buildJsonObject { put("type", "text"); put("text", user) })
+                        add(buildJsonObject { put("type", "image_url"); put("image_url", buildJsonObject { put("url", image) }) })
+                    })
+                })
             })
         }
         val res = http("POST", p.base.trimEnd('/') + "/chat/completions", key, p, body.toString())

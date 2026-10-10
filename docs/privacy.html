@@ -12,7 +12,7 @@
 <main class="window">
   <header class="bar">BUDGETER · PRIVACY POLICY</header>
   <div class="body">
-    <p class="meta">Last updated 6 October 2026</p>
+    <p class="meta">Last updated 10 October 2026</p>
 
     <h2>The short version</h2>
     <p>Budgeter keeps your budget on your phone. It has no account, no server of its own, no ads and no analytics. Data only leaves the phone when you turn on a feature that needs it, and then only to the service you chose.</p>
@@ -20,14 +20,14 @@
     <h2>What stays on your phone</h2>
     <ul>
       <li>Your budget, expenses, trips, groups and settings are stored in the app's private storage on your device.</li>
-      <li>Receipt photos and screenshots are read on the phone with on-device text recognition. Images are never uploaded and the photo is deleted after reading.</li>
+      <li>Without an AI provider, receipt photos and screenshots are read on the phone with on-device text recognition and never uploaded. The photo is deleted from the phone after reading either way.</li>
       <li>AI provider keys you add are encrypted with the Android Keystore and never leave the phone except to the provider they belong to.</li>
     </ul>
 
     <h2>What is sent, and only when you use it</h2>
     <ul>
       <li><b>Google Sheets export (optional).</b> If you connect Google, Budgeter creates one spreadsheet named "Budgeter" in your Google Drive and writes your transactions to it: date, merchant, category, amounts, payer, split method, group and trip names, items and notes. It uses the <code>drive.file</code> permission, which only lets it see files it created. It does not read any other Drive or Google data. You can disconnect at any time in Profile → Google Sheets sync, or remove access at <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>.</li>
-      <li><b>AI receipt reading (optional).</b> If you add an AI provider, the text recognised from a receipt is sent to that provider (for example Google Gemini, OpenRouter, Anthropic, OpenAI, DeepSeek or Perplexity) using your own key, to sort it into items, tax and service charge. Images are never sent. That provider's own privacy policy applies to what you send it.</li>
+      <li><b>AI receipt reading (optional).</b> If you add an AI provider, the receipt photo or screenshot you scan is sent to that provider (for example Google Gemini, OpenRouter, Anthropic, OpenAI, DeepSeek or Perplexity) using your own key, to read it into items, tax and service charge. If the provider's model can't read images, the text recognised on your phone is sent instead. That provider's own privacy policy applies to what you send it.</li>
       <li><b>Exchange rates.</b> For spending in another currency, the app asks open.er-api.com for the day's rates. Only currency codes are sent.</li>
       <li><b>Update checks.</b> The app asks GitHub for the latest Budgeter release and downloads it from GitHub when you choose to update. No personal data is sent.</li>
     </ul>

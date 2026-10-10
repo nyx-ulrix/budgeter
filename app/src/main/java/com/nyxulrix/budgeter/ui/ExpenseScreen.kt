@@ -392,7 +392,7 @@ fun ScanningOverlay(status: String) {
         Window("Scanning.exe", Modifier.width(320.dp)) {
             Body(status)
             SteppedBar()
-            Small("Photos stay on your phone. Only the text is read.")
+            Small("With an AI provider, the receipt photo is sent to it to read. Without one, it's read on your phone.")
         }
     }
 }

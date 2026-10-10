@@ -106,7 +106,7 @@ fun CameraScreen() {
                     AndroidView({ previewView }, Modifier.fillMaxSize())
                     ReceiptGuides()
                 }
-                Small("Lay the receipt flat and fit it inside the corners. The photo is read on your phone, then deleted.")
+                Small("Lay the receipt flat and fit it inside the corners. The photo is read (by your AI provider if you've added one), then deleted from the phone.")
             } else {
                 Body("Budgeter needs the camera to read receipts.")
                 if (asked) Small("If you chose \"Don't allow\", turn the camera on for Budgeter in Android settings, or import a screenshot instead.")
