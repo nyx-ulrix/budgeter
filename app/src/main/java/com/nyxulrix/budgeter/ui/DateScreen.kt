@@ -128,7 +128,10 @@ fun DateBudgetFold(st: AppState, period: Period) {
                 Fund(cur, period)
                 PlanWindow(cur)
                 ShareWindow(st, cur)
-                Section("One-off top up or expense") { TxForm(cur, null, { DateClient.addTx(it) }) }
+                Section("One-off top up") {
+                    TxForm(cur, null, { DateClient.addTx(it) })
+                    Small("Date spending is added like any expense: pick Date budget under Count toward.")
+                }
             }
         }
         if (ds.phase != Phase.SignedOut) PixelButton("Sign out of the date budget", { DateClient.signOut() }, Modifier.fillMaxWidth(), kind = Kind.SECONDARY)
@@ -305,7 +308,7 @@ private fun ShareWindow(st: AppState, cur: String) {
 @Composable
 private fun TxForm(cur: String, tx: Tx?, onSave: suspend (TxDraft) -> Unit, onDone: () -> Unit = {}) {
     val scope = rememberCoroutineScope()
-    var kind by remember { mutableStateOf(tx?.kind ?: "expense") }
+    val kind = tx?.kind ?: "topup"   // fixed: new entries here are top-ups; edits keep theirs
     var amount by remember { mutableStateOf(tx?.let { plain(it.amount, cur) } ?: "") }
     var note by remember { mutableStateOf(tx?.note ?: "") }
     var date by remember { mutableStateOf(tx?.date?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: LocalDate.now()) }
@@ -313,7 +316,6 @@ private fun TxForm(cur: String, tx: Tx?, onSave: suspend (TxDraft) -> Unit, onDo
     var err by remember { mutableStateOf<String?>(null) }
     val v = parseMoney(amount, cur)
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Choice(listOf("expense", "topup"), kind, { if (it == "expense") "Expense" else "Top up" }, { kind = it })
         PixelField(amount, { amount = it }, "Amount ($cur)", keyboard = KeyboardType.Decimal, placeholder = "0.00")
         PixelField(note, { note = it.take(100) }, "What for", placeholder = if (kind == "expense") "Dinner, movie…" else "Top up")
         DateField("Date", date, { date = it })
