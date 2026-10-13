@@ -15,6 +15,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -226,10 +227,12 @@ Rules:
 
     private fun friendly(p: Provider, code: Int, text: String): String {
         val msg = runCatching {
-            val o = json.parseToJsonElement(text) as JsonObject
+            val e = json.parseToJsonElement(text)
+            val o = (if (e is JsonArray) e.first() else e) as JsonObject   // Gemini wraps its error in a list
             (o["error"]?.let { e -> (e as? JsonObject)?.get("message")?.jsonPrimitive?.content ?: e.jsonPrimitive.content })
         }.getOrNull() ?: text.take(200)
-        return when (code) {
+        // Gemini reports a bad key as 400 "API key not valid" / "pass a valid API key".
+        return when (if (code == 400 && msg.contains("api key", ignoreCase = true)) 401 else code) {
             401, 403 -> "${p.label} rejected the key. Check it in Profile → AI. ($msg)"
             402 -> "${p.label} account is out of credit. ($msg)"
             404 -> "${p.label} doesn't know model \"${p.model}\". Pick another in Profile → AI."
