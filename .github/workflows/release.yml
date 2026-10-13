@@ -36,6 +36,7 @@ jobs:
           BUDGETER_KEYSTORE_PASSWORD: ${{ secrets.BUDGETER_KEYSTORE_PASSWORD }}
           BUDGETER_KEY_ALIAS: budgeter
           BUDGETER_KEY_PASSWORD: ${{ secrets.BUDGETER_KEYSTORE_PASSWORD }}
+          DATEBUDGET_API_KEY: ${{ secrets.DATEBUDGET_API_KEY }}
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleRelease -PappVersion="${GITHUB_REF_NAME#v}"

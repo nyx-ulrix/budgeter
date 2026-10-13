@@ -70,6 +70,7 @@ data class Line(
     val plannedId: String? = null,
     val tripId: String? = null,
     val added: String? = null,     // ISO day it was added; null = from the period's first day (carried over, or older data)
+    val tag: String? = null,       // "date" = my monthly share of the shared date budget
 )
 
 @Serializable

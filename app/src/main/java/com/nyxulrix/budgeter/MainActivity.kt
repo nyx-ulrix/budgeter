@@ -6,6 +6,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.nyxulrix.budgeter.ai.OpenRouterLogin
+import com.nyxulrix.budgeter.date.DateClient
+import com.nyxulrix.budgeter.date.Phase
 import com.nyxulrix.budgeter.update.Updater
 import kotlinx.coroutines.launch
 import com.nyxulrix.budgeter.ui.BudgeterTheme
@@ -22,6 +24,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         handle(intent)
         App.scope.launch { Updater.check(applicationContext) }
+        // The shared date budget, if signed in; once per process (a rotated activity keeps what is loaded).
+        if (DateClient.state.value.phase == Phase.SignedOut) App.scope.launch { DateClient.resume() }
         setContent { BudgeterTheme { Root(nav) } }
     }
 

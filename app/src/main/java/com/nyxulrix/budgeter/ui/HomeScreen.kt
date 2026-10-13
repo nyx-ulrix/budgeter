@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,6 +44,8 @@ import com.nyxulrix.budgeter.data.reserved
 import com.nyxulrix.budgeter.data.snapshot
 import com.nyxulrix.budgeter.data.tripFund
 import com.nyxulrix.budgeter.data.tripSpent
+import com.nyxulrix.budgeter.date.DateClient
+import com.nyxulrix.budgeter.date.Phase
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
@@ -122,6 +125,12 @@ fun HomeScreen(st: AppState) {
                 Small("Trip spending doesn't touch your daily budget.")
                 PixelButton("Open trip", { nav.go(Screen.TripView(trip.id)) }, kind = Kind.SECONDARY)
             }
+        }
+
+        val ds by DateClient.state.collectAsState()
+        if (ds.phase == Phase.Ready) FoldWindow("Date budget") {
+            Body("${money(ds.left, cur)} left to spend on dates", color = if (ds.left < 0) Px.red else Px.brown)
+            PixelButton("Open date budget", { nav.go(Screen.Date) }, kind = Kind.SECONDARY)
         }
 
         val top = st.planned.filter { it.status == PlannedStatus.OPEN }.sortedWith(compareBy({ it.priority }, { it.targetMonth })).take(2)

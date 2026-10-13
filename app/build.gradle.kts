@@ -16,7 +16,7 @@ val keys = Properties().apply { rootProject.file("keystore.properties").takeIf {
 fun key(name: String, env: String): String? = keys.getProperty(name) ?: System.getenv(env)?.takeIf { it.isNotBlank() }
 
 // Version comes from the release tag (-PappVersion=1.2.3). versionCode must grow with it: 1.2.3 → 10203.
-val appVersion = (findProperty("appVersion") as String?)?.removePrefix("v") ?: "1.6.5"
+val appVersion = (findProperty("appVersion") as String?)?.removePrefix("v") ?: "1.7.0"
 val v = appVersion.split(".").map { it.takeWhile(Char::isDigit).toIntOrNull() ?: 0 } + listOf(0, 0, 0)
 
 android {
@@ -29,6 +29,8 @@ android {
         versionCode = v[0] * 10000 + v[1] * 100 + v[2]
         versionName = appVersion
         // Where the app looks for new versions (GitHub "owner/repo" with public releases).
+        // DateBudget's Android-restricted Firebase key for the shared date budget (keystore.properties or GitHub secret).
+        buildConfigField("String", "DATEBUDGET_API_KEY", "\"${key("dateBudgetApiKey", "DATEBUDGET_API_KEY") ?: ""}\"")
         buildConfigField("String", "UPDATE_REPO", "\"${findProperty("updateRepo") ?: "nyx-ulrix/budgeter"}\"")
     }
     signingConfigs {
@@ -68,5 +70,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
     implementation("com.google.android.gms:play-services-auth:21.4.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2")
+    implementation("androidx.credentials:credentials:1.5.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.5.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
     testImplementation("junit:junit:4.13.2")
 }

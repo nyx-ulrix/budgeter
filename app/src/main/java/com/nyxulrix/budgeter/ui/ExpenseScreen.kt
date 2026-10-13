@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -54,9 +55,14 @@ import com.nyxulrix.budgeter.data.personId
 import com.nyxulrix.budgeter.data.personLabel
 import com.nyxulrix.budgeter.data.Rates
 import com.nyxulrix.budgeter.data.saveTxn
+import com.nyxulrix.budgeter.date.DateClient
+import com.nyxulrix.budgeter.date.Phase
+import com.nyxulrix.budgeter.date.TxDraft
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
 import java.time.LocalDate
+
+private const val DATE = "date"   // Count toward: the shared date budget
 
 class ItemDraft(name: String, price: String, qty: Int = 1, owners: Set<String> = emptySet(), category: String? = null) {
     var name by mutableStateOf(name)
@@ -151,8 +157,9 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
     val existing = s.id?.let { id -> st.txns.firstOrNull { it.id == id } }
     var catFor by remember { mutableStateOf<ItemDraft?>(null) }
     var rereading by remember { mutableStateOf(false) }
+    val dateReady = DateClient.state.collectAsState().value.phase == Phase.Ready
     val cur = d.paidCur
-    val splitting = d.people > 1
+    val splitting = d.people > 1 && d.tripId != DATE   // the date budget has no split (its window is hidden)
     val members = (1..d.people).map(::personId)
 
     // Fetch a rate when paying in another currency; the user can overwrite it.
@@ -206,6 +213,13 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
     }.getOrElse { errors += (it.message ?: "Split doesn't add up"); emptyMap() }
 
     fun save() {
+        if (d.tripId == DATE) {   // the shared date fund, not my budget
+            scope.launch {
+                runCatching { DateClient.addTx(TxDraft("expense", totalHome, (d.merchant.trim().ifEmpty { d.note.trim() }.ifEmpty { "Date" }).take(100), d.date.toString())) }
+                    .onSuccess { nav.back() }.onFailure { Toast.makeText(ctx, it.message, Toast.LENGTH_LONG).show() }
+            }
+            return
+        }
         val t = Txn(
             id = existing?.id ?: newId(),
             date = d.date.toString(),
@@ -295,16 +309,20 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
             if (cur != home) PixelField(d.rate, { d.rate = it }, "Paid in $cur · 1 $cur = ? $home", keyboard = KeyboardType.Decimal)
         }
 
-        if (st.trips.isNotEmpty()) Window("Count toward") {
+        if (st.trips.isNotEmpty() || dateReady) Window("Count toward") {
             val trips = st.trips.sortedByDescending { it.start }
-            Choice(listOf<String?>(null) + trips.map { it.id }, d.tripId, { id -> id?.let { tid -> "Trip: " + trips.first { it.id == tid }.name } ?: "Monthly budget" }, { id ->
+            val options = listOf<String?>(null) + trips.map { it.id } + if (dateReady && existing == null) listOf(DATE) else emptyList()
+            Choice(options, d.tripId, { id ->
+                when (id) { null -> "Monthly budget"; DATE -> "Date budget"; else -> "Trip: " + (trips.firstOrNull { it.id == id }?.name ?: "") }
+            }, { id ->
                 d.tripId = id
                 trips.firstOrNull { it.id == id }?.let { t -> d.paidCur = t.currency }
             })
-            if (d.tripId != null) Small("Comes out of the trip fund, not your daily budget.")
+            if (d.tripId == DATE) Small("Goes to the shared date budget (your partner sees it), not your daily budget.")
+            else if (d.tripId != null) Small("Comes out of the trip fund, not your daily budget.")
         }
 
-        Window("Split") {
+        if (d.tripId != DATE) Window("Split") {
             Label("Split between")
             Choice((1..8).toList(), d.people, { if (it == 1) "Just me" else "$it people" }, { n ->
                 d.people = n

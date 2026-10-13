@@ -10,3 +10,4 @@ captures/
 graphify-out/
 keystore.properties
 .firebase/
+.claude/
