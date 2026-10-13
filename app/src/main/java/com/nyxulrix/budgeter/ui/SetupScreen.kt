@@ -57,7 +57,7 @@ fun SetupScreen(existing: Setup?) {
         if (first) {
             Window("Welcome.exe") {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Art(artId("hero_welcome", R.drawable.char_princess_face), 96.dp, description = "Pixel-art guide character")
+                    Art(R.drawable.app_icon, 96.dp, description = "Budgeter")
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("HELLO!", style = Type.hero)
                         Body("Let's set up your budget. You can change all of this later in Profile.")
@@ -89,7 +89,8 @@ fun SetupScreen(existing: Setup?) {
             }
         }
         PixelButton(if (first) "Start budgeting" else "Save", {
-            val s = Setup(country, currency, day!!, name.trim())
+            val s = existing?.copy(country = country, currency = currency, startDay = day!!, name = name.trim())   // keeps the profile picture
+                ?: Setup(country, currency, day!!, name.trim())
             if (first) App.store.finishSetup(s, incomeMinor!!, balanceMinor!!) else { App.store.editSetup(s); nav?.back() }
         }, Modifier.fillMaxWidth(), enabled = ok)
     }

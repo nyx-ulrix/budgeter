@@ -1,6 +1,8 @@
 package com.nyxulrix.budgeter.ui
 
 import android.app.DatePickerDialog
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.runtime.collectAsState
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -342,3 +344,18 @@ fun Rule(modifier: Modifier = Modifier) {
 
 @Composable
 fun Gap(h: Dp = 8.dp) = Spacer(Modifier.height(h))
+
+/**
+ * Your profile picture wherever the app shows a character: the photo you uploaded (Profile), otherwise the app icon.
+ * The photo lives in the setup record, so it's the same on the phone and the web.
+ */
+@Composable
+fun Avatar(size: Dp, modifier: Modifier = Modifier, description: String? = null) {
+    val photo = com.nyxulrix.budgeter.App.store.state.collectAsState().value.setup?.avatar
+    val bmp = remember(photo) {
+        photo?.let { runCatching { android.util.Base64.decode(it.substringAfter(','), android.util.Base64.DEFAULT) }.getOrNull() }
+            ?.let { android.graphics.BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() }
+    }
+    if (bmp == null) Art(com.nyxulrix.budgeter.R.drawable.app_icon, size, modifier, description)
+    else Image(bmp, description ?: "Profile picture", modifier.size(size))
+}

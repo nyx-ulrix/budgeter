@@ -130,7 +130,7 @@ fun TripScreen(st: AppState, id: String) {
 
         Window(if (started) "Trip fund" else "Fund so far") {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Art(artId("mascot_travel", R.drawable.mascot_idle), 48.dp)
+                Avatar(48.dp)
                 Column(Modifier.weight(1f)) {
                     Label("Left in fund")
                     Text(money(left, cur), style = Type.hero, color = if (left < 0) Px.red else Px.brown)

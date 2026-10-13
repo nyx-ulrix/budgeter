@@ -1,6 +1,8 @@
 package com.nyxulrix.budgeter.ui
 
 import android.app.Activity
+import com.nyxulrix.budgeter.data.editSetup
+import androidx.activity.result.PickVisualMediaRequest
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -58,7 +60,7 @@ fun ProfileScreen(st: AppState) {
     Page {
         Window("Profile.exe") {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Art(artId("char_profile", R.drawable.char_boy_face), 88.dp, description = "Your pixel character")
+                Avatar(88.dp, description = "Your profile picture")
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(s.name.ifBlank { "PLAYER 1" }.uppercase(), style = Type.number)
                     Small("${countryName(s.country)} · ${s.currency}")
@@ -66,6 +68,7 @@ fun ProfileScreen(st: AppState) {
                     Chip("${paceSymbol(snap.pace)} ${snap.pace.label}", paceColor(snap.pace))
                 }
             }
+            PictureButtons(s)
             Rule()
             Label("Likes")
             Small("- Staying under budget\n- Receipts that add up")
@@ -291,4 +294,37 @@ fun CreditsScreen() {
             Small("SIL Open Font License 1.1")
         }
     }
+}
+
+/** Upload or clear the profile picture. Synced to the web app with your settings. */
+@Composable
+private fun PictureButtons(s: com.nyxulrix.budgeter.data.Setup) {
+    val ctx = LocalContext.current
+    val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val photo = runCatching { avatarFrom(ctx, uri) }.getOrNull()
+        if (photo == null) Toast.makeText(ctx, "Couldn't read that picture.", Toast.LENGTH_LONG).show()
+        else App.store.editSetup(App.store.value.setup!!.copy(avatar = photo))
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        PixelButton(if (s.avatar != null) "Change picture" else "Upload a picture",
+            { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, kind = Kind.SECONDARY)
+        if (s.avatar != null) PixelButton("Use app icon", { App.store.editSetup(s.copy(avatar = null)) }, kind = Kind.SECONDARY)
+    }
+    Small("Shown at the top, on Home and here, in the web app too.")
+}
+
+/** A picked photo as a small square JPEG data URL (centre crop, 128 px): small enough to sync in one sheet cell. */
+private fun avatarFrom(ctx: android.content.Context, uri: android.net.Uri): String {
+    val src = if (android.os.Build.VERSION.SDK_INT >= 28)
+        android.graphics.ImageDecoder.decodeBitmap(android.graphics.ImageDecoder.createSource(ctx.contentResolver, uri)) { d, _, _ ->
+            d.allocator = android.graphics.ImageDecoder.ALLOCATOR_SOFTWARE
+        }
+    else ctx.contentResolver.openInputStream(uri).use { android.graphics.BitmapFactory.decodeStream(it) }!!
+    val side = minOf(src.width, src.height)
+    val square = android.graphics.Bitmap.createBitmap(src, (src.width - side) / 2, (src.height - side) / 2, side, side)
+    val small = android.graphics.Bitmap.createScaledBitmap(square, 128, 128, true)
+    val out = java.io.ByteArrayOutputStream()
+    small.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, out)
+    return "data:image/jpeg;base64," + android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
 }

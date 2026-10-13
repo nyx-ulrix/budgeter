@@ -70,7 +70,7 @@ fun HomeScreen(st: AppState) {
         // Above the fold: today, this month, quick actions.
         Window("Today.exe") {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Art(artId("mascot_${moodOf(snap.pace)}", R.drawable.mascot_idle), 56.dp, description = null)
+                Avatar(56.dp)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Label("Left to spend today")
                     Text(money(snap.day.dailyLeft, cur), style = Type.hero, color = dayColor(snap.day))

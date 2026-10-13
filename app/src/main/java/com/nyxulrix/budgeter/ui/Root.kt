@@ -134,7 +134,7 @@ private fun Toolbar(st: AppState) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Box(Modifier.frame(Px.creamLight, width = 2.dp).padding(2.dp)) { Art(artId("mascot_${moodOf(snap.pace)}", R.drawable.mascot_idle), 28.dp) }
+            Box(Modifier.frame(Px.creamLight, width = 2.dp).padding(2.dp)) { Avatar(28.dp) }
             Text("BUDGETER", style = Type.number, color = Px.creamLight, modifier = Modifier.weight(1f))
             Chip(snap.period.key, Px.creamLight)
             if (st.sync.enabled) Box(

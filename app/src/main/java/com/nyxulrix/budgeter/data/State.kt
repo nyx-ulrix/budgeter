@@ -36,6 +36,7 @@ data class Setup(
     val currency: String,         // ISO 4217, e.g. "SGD"
     val startDay: Int = 1,        // budget period starts on this day of the month (1–28)
     val name: String = "",
+    val avatar: String? = null,   // profile picture as a small JPEG data URL; synced with the web app through the setup record
 )
 
 /**

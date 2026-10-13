@@ -60,7 +60,7 @@ fun CompactScreen(st: AppState, adding: Boolean = false, onDone: () -> Unit = {}
             Modifier.fillMaxWidth().pixelShadow(3.dp).frame(Px.orange).padding(6.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Art(artId("mascot_${moodOf(snap.pace)}", R.drawable.mascot_idle), 32.dp)
+            Avatar(32.dp)
             Column(Modifier.weight(1f)) {
                 Text("TODAY", style = Type.label, color = Px.creamLight)
                 Text(money(snap.day.dailyLeft, cur), style = Type.number.copy(fontSize = 14.sp), color = if (snap.day.dailyLeft < 0) Px.white else Px.creamLight)
