@@ -251,3 +251,6 @@ Each ends with a working build. After M9, one Fable audit of the whole app, then
 | Production | Test server removed. The install button installs the release build. |
 | Savings target (v1.3) | A monthly amount kept aside first: spendable = (budget, or everything available) − target, and the daily budget follows. Spending past spendable dips into the target: the month bar pulses yellow with a "Dipping into savings" chip. Past the target too is over budget: red. Carries over like the budget. |
 
+## 13. Two-way sync with the web app (v1.6)
+
+The web app ([budgeter-web](https://github.com/nyx-ulrix/budgeter-web), React Native for Web) shares the same Budgeter spreadsheet. Besides the readable month tabs, a hidden `_sync` tab holds one row per record: `setup`, `categories`, `plan:<period>`, `txn:<id>`, `planned:<id>`, `trip:<id>`, each with the time it last changed and its JSON (empty = deleted). `Store.update` stamps every record a change touches (`Records.kt`). Each sync takes the sheet's records that are newer than ours, writes the month tabs, then uploads our newer records. Last writer wins per record. The phone syncs after each change and whenever the app is opened; the web app also syncs every minute while it's open. AI keys and sync settings stay on each device. `Records.kt` and the web's `records.ts` define the format and must stay in step.

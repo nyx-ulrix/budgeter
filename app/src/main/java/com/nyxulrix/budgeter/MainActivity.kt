@@ -25,6 +25,12 @@ class MainActivity : ComponentActivity() {
         setContent { BudgeterTheme { Root(nav) } }
     }
 
+    /** Opening the app pulls changes made in the web app (sync on). */
+    override fun onResume() {
+        super.onResume()
+        com.nyxulrix.budgeter.sync.SyncWorker.queue(this, 0)
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handle(intent)

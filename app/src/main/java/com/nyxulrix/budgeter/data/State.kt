@@ -27,6 +27,7 @@ data class AppState(
     // day's budget, but don't use up today's budget.
     val monthlyCategories: Set<String> = setOf("Groceries", "Bills"),
     val sync: SyncInfo = SyncInfo(),
+    val stamps: Map<String, Long> = emptyMap(),       // record key → when it last changed, for two-way sync (Records.kt)
 )
 
 @Serializable

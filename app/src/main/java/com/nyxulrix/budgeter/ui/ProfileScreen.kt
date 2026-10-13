@@ -251,8 +251,8 @@ fun SyncScreen(st: AppState) {
     Page {
         PageHeader("Sheets")
         Window("Google Sheets") {
-            Body("Copies every transaction to a spreadsheet called Budgeter in your Google Drive, one tab per month.")
-            Small("The app can only see files it made itself. Edits made in the sheet don't come back to the app.")
+            Body("Keeps everything in a spreadsheet called Budgeter in your Google Drive: a readable tab per month, plus a hidden _sync tab.")
+            Small("The web app (app.budgeter.liewjiaen.com) uses the same sheet, so a change made in either app shows up in the other. Typing straight into the month tabs doesn't come back to the apps.")
             when {
                 !sync.enabled -> PixelButton("Connect Google", { connect() }, Modifier.fillMaxWidth(), glyph = Glyphs.sync)
                 sync.paused != null -> {

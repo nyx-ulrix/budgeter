@@ -19,6 +19,10 @@ import com.nyxulrix.budgeter.data.AppState
 import com.nyxulrix.budgeter.data.Txn
 import com.nyxulrix.budgeter.data.currency
 import com.nyxulrix.budgeter.data.json
+import com.nyxulrix.budgeter.data.Remote
+import com.nyxulrix.budgeter.data.mergeRemote
+import com.nyxulrix.budgeter.data.recordObjects
+import com.nyxulrix.budgeter.data.toUpload
 import com.nyxulrix.budgeter.data.periodOf
 import com.nyxulrix.budgeter.data.personLabel
 import com.nyxulrix.budgeter.data.setSync
@@ -54,8 +58,13 @@ val authRequest: AuthorizationRequest = AuthorizationRequest.builder().setReques
 
 class HttpError(val code: Int, msg: String) : Exception(msg)
 
-/** Export of transactions to one Google spreadsheet, one tab per budget period. Export only. */
+/**
+ * One Google spreadsheet shared with the web app: a readable tab per budget period, plus a hidden "_sync" tab
+ * holding every record (Records.kt) so changes made in either app reach the other.
+ */
 object Sheets {
+    private const val SYNC_TAB = "_sync"
+    private val SYNC_HEADER = listOf("Key", "Stamp", "Data")
     private val HEADER = listOf("ID", "Date", "Name", "Category", "Amount", "My Share", "Tax", "Service Charge",
         "Paid Currency", "Paid Amount", "Payer", "Split Method", "People", "Trip", "Items JSON", "Notes")
     private const val LAST_COL = "P"
@@ -74,7 +83,8 @@ object Sheets {
     private fun runLocked(token: String) {
         val store = App.store
         var st = store.value
-        var sheetId = st.sync.spreadsheetId ?: createSpreadsheet(token).also { id -> store.update(false) { it.copy(sync = it.sync.copy(spreadsheetId = id)) } }
+        var sheetId = st.sync.spreadsheetId ?: (findSpreadsheet(token) ?: createSpreadsheet(token))
+            .also { id -> store.update(false) { it.copy(sync = it.sync.copy(spreadsheetId = id)) } }
         val tabs = try {
             existingTabs(token, sheetId).toMutableSet()
         } catch (e: HttpError) {
@@ -85,12 +95,43 @@ object Sheets {
             store.update(false) { s -> s.copy(sync = s.sync.copy(spreadsheetId = fresh), txns = s.txns.map { it.copy(syncedAt = null, syncedTab = null) }) }
             mutableSetOf()
         }
-        st = store.value
-        val todo = st.txns.filter(::needsSync)
-        if (todo.isEmpty()) {
-            store.update(false) { it.copy(sync = it.sync.copy(lastSync = System.currentTimeMillis(), paused = null)) }
-            return
+        // 1. Take every record the other app changed more recently than we did.
+        val remote = if (SYNC_TAB in tabs) readRecords(token, sheetId) else emptyMap()
+        val before = store.value
+        store.update(false, stamp = false) { it.mergeRemote(remote.mapValues { (_, v) -> v.second }) }
+        if (store.value.recordObjects() != before.recordObjects()) com.nyxulrix.budgeter.widget.Widgets.refresh(App.app)
+        // 2. Readable month tabs, then 3. our newer records (including the rows just marked synced).
+        pushTxns(token, sheetId, tabs)
+        val up = store.value.toUpload(remote.mapValues { (_, v) -> v.second })
+        if (up.isNotEmpty()) {
+            if (SYNC_TAB !in tabs) { addTab(token, sheetId, SYNC_TAB, SYNC_HEADER); tabs += SYNC_TAB }
+            val (update, append) = up.entries.partition { it.key in remote }
+            fun cells(k: String, r: Remote) = listOf(JsonPrimitive(k), JsonPrimitive(r.stamp.toString()), JsonPrimitive(r.json ?: ""))
+            if (update.isNotEmpty()) batchUpdate(token, sheetId, update.map { (k, r) -> "'$SYNC_TAB'!A${remote[k]!!.first}:C${remote[k]!!.first}" to cells(k, r) })
+            if (append.isNotEmpty()) append(token, sheetId, SYNC_TAB, append.map { (k, r) -> cells(k, r) })
         }
+        store.update(false) { it.copy(sync = it.sync.copy(lastSync = System.currentTimeMillis(), paused = null)) }
+    }
+
+    /** "_sync" rows: key → (row number, record). A key written twice (two devices at once) keeps the newer row. */
+    private fun readRecords(token: String, id: String): Map<String, Pair<Int, Remote>> {
+        val o = json.parseToJsonElement(http("GET", "$API/$id/values/${enc("'$SYNC_TAB'!A2:C")}", token, null)).jsonObject
+        val out = mutableMapOf<String, Pair<Int, Remote>>()
+        (o["values"] as? JsonArray).orEmpty().forEachIndexed { i, r ->
+            val cells = r.jsonArray.map { it.jsonPrimitive.content }
+            val key = cells.getOrNull(0)?.ifBlank { null } ?: return@forEachIndexed
+            val stamp = cells.getOrNull(1)?.toLongOrNull() ?: return@forEachIndexed
+            if (stamp > (out[key]?.second?.stamp ?: -1)) out[key] = (i + 2) to Remote(stamp, cells.getOrNull(2)?.ifBlank { null })
+        }
+        return out
+    }
+
+    /** Writes new, changed and deleted transactions to their period's readable tab. */
+    private fun pushTxns(token: String, sheetId: String, tabs: MutableSet<String>) {
+        val store = App.store
+        val st = store.value
+        val todo = st.txns.filter(::needsSync)
+        if (todo.isEmpty()) return
         val now = System.currentTimeMillis()
         val done = mutableMapOf<String, String?>()   // txn id → tab written (null = deleted)
 
@@ -122,7 +163,6 @@ object Sheets {
                         else -> t.copy(syncedAt = now, syncedTab = done[t.id])
                     }
                 },
-                sync = s.sync.copy(lastSync = now, paused = null),
             )
         }
     }
@@ -152,6 +192,13 @@ object Sheets {
     private const val API = "https://sheets.googleapis.com/v4/spreadsheets"
     private fun enc(s: String) = URLEncoder.encode(s, "UTF-8").replace("+", "%20")
 
+    /** The Budgeter spreadsheet the web app may already have made (drive.file only sees this app's own files). */
+    private fun findSpreadsheet(token: String): String? {
+        val q = enc("name = 'Budgeter' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false")
+        val o = json.parseToJsonElement(http("GET", "https://www.googleapis.com/drive/v3/files?q=$q&orderBy=modifiedTime%20desc&fields=files(id)", token, null)).jsonObject
+        return (o["files"] as? JsonArray)?.firstOrNull()?.jsonObject?.get("id")?.jsonPrimitive?.content
+    }
+
     private fun createSpreadsheet(token: String): String {
         val body = buildJsonObject { putJsonObject("properties") { put("title", "Budgeter") } }
         return json.parseToJsonElement(http("POST", API, token, body.toString())).jsonObject["spreadsheetId"]!!.jsonPrimitive.content
@@ -161,10 +208,10 @@ object Sheets {
         json.parseToJsonElement(http("GET", "$API/$id?fields=sheets.properties.title", token, null)).jsonObject["sheets"]?.jsonArray
             ?.map { it.jsonObject["properties"]!!.jsonObject["title"]!!.jsonPrimitive.content }?.toSet() ?: emptySet()
 
-    private fun addTab(token: String, id: String, tab: String) {
-        val body = buildJsonObject { putJsonArray("requests") { add(buildJsonObject { putJsonObject("addSheet") { putJsonObject("properties") { put("title", tab) } } }) } }
+    private fun addTab(token: String, id: String, tab: String, header: List<String> = HEADER) {
+        val body = buildJsonObject { putJsonArray("requests") { add(buildJsonObject { putJsonObject("addSheet") { putJsonObject("properties") { put("title", tab); if (tab == SYNC_TAB) put("hidden", true) } } }) } }
         http("POST", "$API/$id:batchUpdate", token, body.toString())
-        batchUpdate(token, id, listOf("'$tab'!A1:${LAST_COL}1" to HEADER.map { JsonPrimitive(it) }))
+        batchUpdate(token, id, listOf("'$tab'!A1:${('A' + header.size - 1)}1" to header.map { JsonPrimitive(it) }))
     }
 
     /** Transaction id → sheet row number, read from column A. */

@@ -219,6 +219,7 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
             method = d.method,
             people = d.people,
             shares = shares,
+            paidBack = existing?.paidBack.orEmpty().filterTo(mutableSetOf()) { (shares[it] ?: 0) > 0 },   // keep ticks for people still sharing the bill
             splitInput = if (!splitting) emptyMap() else members.associateWith { who ->
                 val v = d.inputs[who].orEmpty()
                 when (d.method) {

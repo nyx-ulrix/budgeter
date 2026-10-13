@@ -29,9 +29,12 @@ class Store(dir: File, private val scope: CoroutineScope) {
     /** Called after every change (widgets refresh, sync is queued). */
     var onChange: () -> Unit = {}
 
-    /** [notify] false skips [onChange]; sync uses it to record its own progress without re-triggering itself. */
-    fun update(notify: Boolean = true, f: (AppState) -> AppState) {
-        _state.update(f)
+    /**
+     * [notify] false skips [onChange]; sync uses it to record its own progress without re-triggering itself.
+     * Changed records are stamped for two-way sync; [stamp] false keeps the stamps [f] sets (applying the sheet's copy).
+     */
+    fun update(notify: Boolean = true, stamp: Boolean = true, f: (AppState) -> AppState) {
+        _state.update { old -> f(old).let { if (stamp) it.stampedSince(old, System.currentTimeMillis()) else it } }
         scope.launch(Dispatchers.IO) { writeLock.withLock { write(_state.value) } }
         if (notify) onChange()
     }

@@ -1,6 +1,8 @@
 # Budgeter
 
-Pixel-art Android budget planner for one person. Set a monthly budget and a savings target, see what you can spend today (unspent days carry forward), scan receipts on the phone and split them per item including service charge and GST, plan trips and save for them month by month, and keep a copy in your own Google Sheet. Two home-screen widgets.
+Pixel-art Android budget planner for one person. Set a monthly budget and a savings target, see what you can spend today (unspent days carry forward), scan receipts on the phone and split them per item including service charge and GST, plan trips and save for them month by month, and keep everything in your own Google Sheet. Two home-screen widgets.
+
+There's also a web version, [Budgeter Web](https://github.com/nyx-ulrix/budgeter-web), at https://app.budgeter.liewjiaen.com. With Google Sheets sync on in both, the phone and the web app share everything: expenses, budget, planned purchases, trips, categories and settings.
 
 Plan and decisions: [PLAN.md](PLAN.md). Art list: [docs/GRAPHICS.md](docs/GRAPHICS.md). Sheets setup: [docs/google-setup.md](docs/google-setup.md).
 
