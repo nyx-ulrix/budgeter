@@ -79,9 +79,11 @@ fun HomeScreen(st: AppState) {
                     Text(money(snap.day.dailyLeft, cur), style = Type.hero, color = dayColor(snap.day))
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            val dsTop by DateClient.state.collectAsState()
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Small("Today's budget ${money(snap.day.budget, cur)}")
                 Small("Spent ${money(snap.day.spent, cur)}")
+                if (dsTop.phase == Phase.Ready) Small("Date budget ${money(monthLeft(dsTop.all, snap.period), cur)} left")
             }
             PixelProgress(
                 if (snap.day.budget > 0) snap.day.spent.toFloat() / snap.day.budget else if (snap.day.spent > 0) 1f else 0f,

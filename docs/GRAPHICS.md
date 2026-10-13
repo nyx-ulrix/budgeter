@@ -13,19 +13,19 @@ Status key: **CC0** = royalty-free placeholder from `CREDITS.md`. **Code** = dra
 |---|---|---|---|
 | `ic_launcher_fg` | Home-screen app icon (adaptive foreground, keep art inside the centre 66 of 108) | 108×108 | Code: pixel coin |
 | `ic_launcher_mono` | Themed (monochrome) app icon on Android 13+ | 108×108 | Code: same coin |
-| `hero_welcome.png` | First-run setup screen, large character greeting | 64×64 | CC0: princess portrait |
-| `char_profile.png` | Profile tab character card | 38×38 to 64×64 | CC0: boy portrait |
+| `hero_welcome.png` | First-run setup screen, large character greeting | 64×64 | App icon |
+| `char_profile.png` | Profile tab character card | 38×38 to 64×64 | Your photo, else the app icon |
 
 ## 2. Mascot (reacts to your budget)
 
 | File | Where | Native size | Now |
 |---|---|---|---|
-| `mascot_idle.png` | Home toolbar and Daily Budget window | 16×16 to 32×32 | CC0: princess idle |
-| `mascot_happy.png` | Shown when pacing is On track | same | Needed (uses idle) |
-| `mascot_worried.png` | Slightly over | same | Needed (uses idle) |
-| `mascot_over.png` | Over budget | same | Needed (uses idle) |
+| `mascot_idle.png` | Home toolbar and Daily Budget window | 16×16 to 32×32 | App icon or your photo |
+| `mascot_happy.png` | Shown when pacing is On track | same | Needed (uses the app icon) |
+| `mascot_worried.png` | Slightly over | same | Needed (uses the app icon) |
+| `mascot_over.png` | Over budget | same | Needed (uses the app icon) |
 | `mascot_scan_1.png` … `_4.png` | Animation while a receipt is being read | same, 4 frames | Needed (pixel loading bar instead) |
-| `mascot_travel.png` | Active-trip window on Home | same | Needed (uses idle) |
+| `mascot_travel.png` | Active-trip window on Home | same | Needed (uses the app icon) |
 
 ## 3. Bottom navigation (5)
 

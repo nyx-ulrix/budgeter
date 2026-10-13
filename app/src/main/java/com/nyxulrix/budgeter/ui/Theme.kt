@@ -28,6 +28,7 @@ object Px {
     val navy = Color(0xFF10172F)
     val brown = Color(0xFF2B1D12)
     val blue = Color(0xFF2459A6)
+    val pink = Color(0xFFE0679A)    // date budget: the second partner
     val green = Color(0xFF4A9A78)
     val red = Color(0xFFC93721)
     val white = Color(0xFFFFF4DC)
@@ -101,6 +102,10 @@ object Glyphs {
     val plane = listOf(
         "....#....", "...###...", "...###...", "#########", "#########",
         "...###...", "...###...", "..#####..", ".........",
+    )
+    val heart = listOf(
+        ".##...##.", "####.####", "#########", "#########", ".#######.",
+        "..#####..", "...###...", "....#....", ".........",
     )
     val sync = listOf(
         "..#####..", ".#.....#.", "#.......#", "#....####", "#.....##.",

@@ -81,7 +81,7 @@ fun TxnsScreen(st: AppState) {
             }
             if (rows.isNotEmpty()) {
                 Rule()
-                KeyValue("Total", money(list.sumOf { it.myShare } + dates.sumOf { if (it.kind == "expense") it.amount else 0L }, st.currency))
+                KeyValue("Total", money(list.sumOf { it.myShare } + dates.sumOf { if (it.kind == "expense" && it.by == ds.uid) it.amount else 0L }, st.currency))
             }
         }
     }

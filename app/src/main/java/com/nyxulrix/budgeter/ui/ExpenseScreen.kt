@@ -58,6 +58,7 @@ import com.nyxulrix.budgeter.data.saveTxn
 import com.nyxulrix.budgeter.date.DateClient
 import com.nyxulrix.budgeter.date.Phase
 import com.nyxulrix.budgeter.date.TxDraft
+import com.nyxulrix.budgeter.core.Tx as DateTx
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
 import java.time.LocalDate
@@ -108,9 +109,14 @@ class Draft(home: String) {
     }
 }
 
-private fun draftFrom(st: AppState, s: Screen.Expense): Draft {
+private fun draftFrom(st: AppState, s: Screen.Expense, dateTx: DateTx?): Draft {
     val home = st.currency
     val d = Draft(home)
+    if (dateTx != null) {   // a date budget expense (shared fund): only amount, name and date live there
+        d.amount = plain(dateTx.amount, home); d.merchant = dateTx.note; d.tripId = DATE
+        d.date = runCatching { LocalDate.parse(dateTx.date) }.getOrDefault(LocalDate.now())
+        return d
+    }
     val t = s.id?.let { id -> st.txns.firstOrNull { it.id == id } }
     val trip = st.activeTrip()
     when {
@@ -153,11 +159,14 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
     val nav = LocalNav.current
     val scope = rememberCoroutineScope()
     val home = st.currency
-    val d = remember(s) { draftFrom(st, s) }
+    val ds by DateClient.state.collectAsState()
+    val dateTx = s.dateId?.let { id -> ds.txs.firstOrNull { it.id == id } }
+    val d = remember(s) { draftFrom(st, s, dateTx) }
     val existing = s.id?.let { id -> st.txns.firstOrNull { it.id == id } }
+    val editing = existing != null || dateTx != null
     var catFor by remember { mutableStateOf<ItemDraft?>(null) }
     var rereading by remember { mutableStateOf(false) }
-    val dateReady = DateClient.state.collectAsState().value.phase == Phase.Ready
+    val dateReady = ds.phase == Phase.Ready
     val cur = d.paidCur
     val splitting = d.people > 1 && d.tripId != DATE   // the date budget has no split (its window is hidden)
     val members = (1..d.people).map(::personId)
@@ -213,10 +222,11 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
     }.getOrElse { errors += (it.message ?: "Split doesn't add up"); emptyMap() }
 
     fun save() {
-        if (d.tripId == DATE) {   // the shared date fund, not my budget
+        if (d.tripId == DATE) {   // the shared date fund, not my budget; moving a normal expense there takes it out of my budget
+            val draft = TxDraft("expense", totalHome, (d.merchant.trim().ifEmpty { d.note.trim() }.ifEmpty { "Date" }).take(100), d.date.toString())
             scope.launch {
-                runCatching { DateClient.addTx(TxDraft("expense", totalHome, (d.merchant.trim().ifEmpty { d.note.trim() }.ifEmpty { "Date" }).take(100), d.date.toString())) }
-                    .onSuccess { nav.back() }.onFailure { if (it !is kotlinx.coroutines.CancellationException) Toast.makeText(ctx, it.message, Toast.LENGTH_LONG).show() }
+                runCatching { if (dateTx != null) DateClient.updateTx(dateTx.id, draft) else DateClient.addTx(draft) }
+                    .onSuccess { existing?.let { App.store.deleteTxn(it.id) }; nav.back() }.onFailure { if (it !is kotlinx.coroutines.CancellationException) Toast.makeText(ctx, it.message, Toast.LENGTH_LONG).show() }
             }
             return
         }
@@ -254,11 +264,12 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
             syncedTab = existing?.syncedTab,
         )
         App.store.saveTxn(t)
+        if (dateTx != null) scope.launch { runCatching { DateClient.deleteTx(dateTx.id) } }   // moved out of the date budget into my own
         nav.back()
     }
 
     Page {
-        PageHeader(when { existing != null -> "Edit"; s.receipt != null -> "Check receipt"; else -> "New expense" })
+        PageHeader(when { editing -> "Edit"; s.receipt != null -> "Check receipt"; else -> "New expense" })
 
         Window(if (d.itemised) "Receipt items" else "Expense") {
             Choice(listOf(false, true), d.itemised, { if (it) "Itemised" else "Simple" }, {
@@ -303,15 +314,17 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
         Window("Details") {
             PixelField(d.merchant, { d.merchant = it }, "Name", placeholder = "What was it?")
             DateField("Date", d.date, { d.date = it })
-            Label("Category")
-            Choice(st.categories, d.category, { it }, { d.category = it })
-            PixelField(d.note, { d.note = it }, "Note", singleLine = false)
+            if (d.tripId != DATE) {
+                Label("Category")
+                Choice(st.categories, d.category, { it }, { d.category = it })
+                PixelField(d.note, { d.note = it }, "Note", singleLine = false)
+            }
             if (cur != home) PixelField(d.rate, { d.rate = it }, "Paid in $cur · 1 $cur = ? $home", keyboard = KeyboardType.Decimal)
         }
 
-        if (st.trips.isNotEmpty() || dateReady) Window("Count toward") {
+        if (st.trips.isNotEmpty() || dateReady || dateTx != null) Window("Count toward") {
             val trips = st.trips.sortedByDescending { it.start }
-            val options = listOf<String?>(null) + trips.map { it.id } + if (dateReady && existing == null) listOf(DATE) else emptyList()
+            val options = listOf<String?>(null) + trips.map { it.id } + if (dateReady) listOf(DATE) else emptyList()
             Choice(options, d.tripId, { id ->
                 when (id) { null -> "Monthly budget"; DATE -> "Date budget"; else -> "Trip: " + (trips.firstOrNull { it.id == id }?.name ?: "") }
             }, { id ->
@@ -380,8 +393,9 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
         }
 
         errors.forEach { Text("! $it", style = Type.small, color = Px.red) }
-        PixelButton(if (existing != null) "Save changes" else "Save expense", { save() }, Modifier.fillMaxWidth(), enabled = errors.isEmpty())
+        PixelButton(if (editing) "Save changes" else "Save expense", { save() }, Modifier.fillMaxWidth(), enabled = errors.isEmpty())
         if (existing != null) PixelButton("Delete", { App.store.deleteTxn(existing.id); nav.back() }, Modifier.fillMaxWidth(), kind = Kind.DANGER)
+        if (dateTx != null) PixelButton("Delete", { scope.launch { runCatching { DateClient.deleteTx(dateTx.id) } }; nav.back() }, Modifier.fillMaxWidth(), kind = Kind.DANGER)
     }
 
     catFor?.let { item ->

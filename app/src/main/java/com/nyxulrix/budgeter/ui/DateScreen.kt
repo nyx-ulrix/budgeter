@@ -127,39 +127,46 @@ fun DateBudgetFold(st: AppState, period: Period) {
             Phase.Ready -> {
                 Fund(cur, period)
                 PlanWindow(cur)
-                ShareWindow(st, cur)
                 Section("One-off top up") {
                     TxForm(cur, null, { DateClient.addTx(it) })
                     Small("Date spending is added like any expense: pick Date budget under Count toward.")
                 }
             }
         }
-        if (ds.phase != Phase.SignedOut) PixelButton("Sign out of the date budget", { DateClient.signOut() }, Modifier.fillMaxWidth(), kind = Kind.SECONDARY)
     }
 }
 
-/** A date budget entry in the Txns list. Tap to edit or delete; it's paid from the shared fund, not my budget. */
+/** Who paid, as a colour: the budget's first member is blue, the second pink (the same on both partners' phones). */
+fun payerColor(members: List<String>?, by: String) = when {
+    by.isNotEmpty() && members?.getOrNull(0) == by -> Px.blue
+    by.isNotEmpty() && members?.getOrNull(1) == by -> Px.pink
+    else -> Px.orange
+}
+
+/** A date budget entry in the Txns list, marked with a heart in the payer's colour. Expenses open the expense editor; top-ups edit here. */
 @Composable
 fun DateTxnRow(st: AppState, tx: Tx) {
     val scope = rememberCoroutineScope()
+    val nav = LocalNav.current
     val ds by DateClient.state.collectAsState()
     val cur = st.currency
     var editing by remember { mutableStateOf(false) }
     val expense = tx.kind == "expense"
-    Column(
-        Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(role = Role.Button, onClickLabel = "Edit") { editing = true }.padding(vertical = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+    val who = ds.budget?.names?.get(tx.by) ?: if (tx.by.isNotEmpty()) "Partner" else "Shared"
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 48.dp)
+            .clickable(role = Role.Button, onClickLabel = "Edit") { if (expense) nav.go(Screen.Expense(dateId = tx.id)) else editing = true }
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Body(tx.note.ifEmpty { if (expense) "Date" else "Top up" }, Modifier.weight(1f))
-            Text((if (expense) "" else "+") + money(tx.amount, cur), style = Type.body, color = if (expense) Px.brown else Px.green)
+        Glyph(Glyphs.heart, payerColor(ds.budget?.members, tx.by), 18.dp)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Body(tx.note.ifEmpty { if (expense) "Date" else "Top up" })
+            Small("${if (expense) "Date budget" else "Top up"} · $who")
         }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Chip("Date budget", Px.blue)
-            Small("${if (expense) "Shared fund" else "Added to the shared fund"} · ${ds.budget?.names?.get(tx.by) ?: "Partner"}")
-        }
+        Text((if (expense) "" else "+") + money(tx.amount, cur), style = Type.body, color = if (expense) Px.brown else Px.green)
     }
-    if (editing) PixelDialog("Date budget", { editing = false }) {
+    if (editing) PixelDialog("Top up", { editing = false }) {
         TxForm(cur, tx, { DateClient.updateTx(tx.id, it) }) { editing = false }
         PixelButton("Delete", { editing = false; scope.launch { runCatching { DateClient.deleteTx(tx.id) } } }, Modifier.fillMaxWidth(), kind = Kind.DANGER)
     }
@@ -294,36 +301,22 @@ private fun PlanWindow(cur: String) {
     }
 }
 
-/** My contribution, set aside from my own budget every month (a fixed cost that follows the split). */
-@Composable
-private fun ShareWindow(st: AppState, cur: String) {
-    val line = st.dateLine()
-    Section("From your budget") {
-        Body(if (line != null) "${money(line.amount, cur)} a month is set aside from your budget for dates." else "Nothing is set aside from your budget yet. Save your contribution above.")
-        Small("It follows what you put in (weekly and 2-weekly amounts are turned into a monthly figure). It's a fixed cost from this month on, so your daily budget already allows for it. Date spending then comes out of the shared fund only: add an expense as usual and pick Date budget under Count toward.")
-    }
-}
-
-/** Expense / top-up form, for adding and for the edit dialog. */
+/** The amount of a top-up. New ones are dated today; edits keep their date and note. */
 @Composable
 private fun TxForm(cur: String, tx: Tx?, onSave: suspend (TxDraft) -> Unit, onDone: () -> Unit = {}) {
     val scope = rememberCoroutineScope()
     val kind = tx?.kind ?: "topup"   // fixed: new entries here are top-ups; edits keep theirs
     var amount by remember { mutableStateOf(tx?.let { plain(it.amount, cur) } ?: "") }
-    var note by remember { mutableStateOf(tx?.note ?: "") }
-    var date by remember { mutableStateOf(tx?.date?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: LocalDate.now()) }
     var busy by remember { mutableStateOf(false) }
     var err by remember { mutableStateOf<String?>(null) }
     val v = parseMoney(amount, cur)
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         PixelField(amount, { amount = it }, "Amount ($cur)", keyboard = KeyboardType.Decimal, placeholder = "0.00")
-        PixelField(note, { note = it.take(100) }, "What for", placeholder = if (kind == "expense") "Dinner, movie…" else "Top up")
-        DateField("Date", date, { date = it })
         PixelButton(if (tx != null) "Save" else "Add", {
             busy = true; err = null
             scope.launch {
-                runCatching { onSave(TxDraft(kind, v!!, note.trim(), date.toString())) }
-                    .onSuccess { if (tx == null) { amount = ""; note = "" }; onDone() }
+                runCatching { onSave(TxDraft(kind, v!!, tx?.note ?: "", tx?.date ?: LocalDate.now().toString())) }
+                    .onSuccess { if (tx == null) amount = ""; onDone() }
                     .onFailure { if (it !is kotlinx.coroutines.CancellationException) err = it.message }
                 busy = false
             }

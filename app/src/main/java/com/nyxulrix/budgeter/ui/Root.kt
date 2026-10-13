@@ -54,7 +54,7 @@ enum class Tab(val label: String, val glyph: List<String>) {
 
 /** Screens pushed over the tabs. */
 sealed interface Screen {
-    data class Expense(val id: String? = null, val receipt: ParsedReceipt? = null, val ocrText: String? = null, val tripId: String? = null) : Screen
+    data class Expense(val id: String? = null, val receipt: ParsedReceipt? = null, val ocrText: String? = null, val tripId: String? = null, val dateId: String? = null) : Screen
     data class PlannedEdit(val id: String? = null) : Screen
     data class TripView(val id: String) : Screen
     data object Ai : Screen
@@ -90,7 +90,7 @@ fun Root(nav: Nav) {
         LaunchedEffect(nav.pendingScan) { if (nav.pendingScan) { nav.pendingScan = false; scanner.camera() } }
         val compact = isCompact()
         val top = nav.stack.lastOrNull()
-        val plainAdd = top is Screen.Expense && top.id == null && top.receipt == null && top.tripId == null
+        val plainAdd = top is Screen.Expense && top.id == null && top.receipt == null && top.tripId == null && top.dateId == null
         CompositionLocalProvider(LocalNav provides nav, LocalScanner provides scanner) {
             // Flip-phone cover screen: concise view only; scanned receipts still open the full editor.
             if (compact && (top == null || plainAdd)) CompactScreen(st, adding = plainAdd) { if (plainAdd) nav.back() }

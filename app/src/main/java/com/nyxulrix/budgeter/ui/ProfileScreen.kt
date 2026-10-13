@@ -1,5 +1,7 @@
 package com.nyxulrix.budgeter.ui
 
+import com.nyxulrix.budgeter.date.Phase
+import com.nyxulrix.budgeter.date.DateClient
 import android.app.Activity
 import com.nyxulrix.budgeter.data.editSetup
 import androidx.activity.result.PickVisualMediaRequest
@@ -78,6 +80,8 @@ fun ProfileScreen(st: AppState) {
             PixelButton("AI receipt reading", { nav.go(Screen.Ai) }, Modifier.fillMaxWidth(), kind = Kind.SECONDARY, art = R.drawable.icon_receipt)
             PixelButton("Google Sheets sync", { nav.go(Screen.Sync) }, Modifier.fillMaxWidth(), kind = Kind.SECONDARY, glyph = Glyphs.sync)
             PixelButton("Credits", { nav.go(Screen.Credits) }, Modifier.fillMaxWidth(), kind = Kind.SECONDARY, art = R.drawable.icon_heart)
+            val date by DateClient.state.collectAsState()
+            if (date.phase != Phase.SignedOut) PixelButton("Sign out of the date budget", { DateClient.signOut() }, Modifier.fillMaxWidth(), kind = Kind.SECONDARY, glyph = Glyphs.heart)
         }
         UpdatesWindow()
         CategoriesWindow(st)
@@ -287,7 +291,6 @@ fun CreditsScreen() {
         Window("Art") {
             Body("Ninja Adventure by Pixel-boy & AAA (CC0)")
             Body("1-bit Pixel Icons by Nikoichu (CC0)")
-            Small("Placeholder art. Your own art replaces it; see docs/GRAPHICS.md.")
         }
         Window("Fonts") {
             Body("Press Start 2P, Silkscreen, VT323")
