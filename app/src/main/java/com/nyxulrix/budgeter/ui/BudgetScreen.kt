@@ -95,11 +95,13 @@ fun BudgetScreen(st: AppState) {
 
         val setAside = plan.lines.filter { (it.kind == LineKind.RESERVE && !st.isSpentReserve(it)) || it.kind == LineKind.TRIP_FUND }
         if (setAside.isNotEmpty()) FoldWindow("Set aside this month") {
-            setAside.forEach { l ->
+            // One row per item or trip: each Reserve press is its own dated line, shown here as one total.
+            setAside.groupBy { it.plannedId ?: it.tripId ?: it.id }.values.forEach { group ->
+                val l = group.first()
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Body("${l.kind.label}: ${l.name}", Modifier.weight(1f))
-                    Text(money(l.amount, cur), style = Type.body)
-                    CloseButton { App.store.removeLine(key, l.id) }
+                    Text(money(group.sumOf { it.amount }, cur), style = Type.body)
+                    CloseButton { group.forEach { App.store.removeLine(key, it.id) } }
                 }
             }
             Small("Removing one gives the money back to this month.")
