@@ -57,7 +57,6 @@ fun SetupScreen(existing: Setup?) {
         if (first) {
             Window("Welcome.exe") {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Art(R.drawable.app_icon, 96.dp, description = "Budgeter")
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("HELLO!", style = Type.hero)
                         Body("Let's set up your budget. You can change all of this later in Profile.")
