@@ -314,17 +314,39 @@ private fun PictureButtons(s: com.nyxulrix.budgeter.data.Setup) {
     Small("Shown at the top, on Home and here, in the web app too.")
 }
 
-/** A picked photo as a small square JPEG data URL (centre crop, 128 px): small enough to sync in one sheet cell. */
+/**
+ * A picked picture as a small square data URL. Fully transparent edges are trimmed, then the whole picture is scaled
+ * to fit the square (never cut); any space left over stays transparent. PNG when there's transparency, else JPEG.
+ * It has to fit in one sheet cell to sync (50,000 characters), so a large one shrinks.
+ */
 private fun avatarFrom(ctx: android.content.Context, uri: android.net.Uri): String {
     val src = if (android.os.Build.VERSION.SDK_INT >= 28)
         android.graphics.ImageDecoder.decodeBitmap(android.graphics.ImageDecoder.createSource(ctx.contentResolver, uri)) { d, _, _ ->
             d.allocator = android.graphics.ImageDecoder.ALLOCATOR_SOFTWARE
         }
     else ctx.contentResolver.openInputStream(uri).use { android.graphics.BitmapFactory.decodeStream(it) }!!
-    val side = minOf(src.width, src.height)
-    val square = android.graphics.Bitmap.createBitmap(src, (src.width - side) / 2, (src.height - side) / 2, side, side)
-    val small = android.graphics.Bitmap.createScaledBitmap(square, 128, 128, true)
-    val out = java.io.ByteArrayOutputStream()
-    small.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, out)
-    return "data:image/jpeg;base64," + android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+    // Where the visible part is, measured on a copy at most 512 px wide.
+    val k = minOf(1f, 512f / maxOf(src.width, src.height))
+    val mw = maxOf(1, (src.width * k).toInt()); val mh = maxOf(1, (src.height * k).toInt())
+    val m = android.graphics.Bitmap.createScaledBitmap(src, mw, mh, true)
+    val a = IntArray(mw * mh).also { m.getPixels(it, 0, mw, 0, 0, mw, mh) }
+    var x0 = mw; var y0 = mh; var x1 = -1; var y1 = -1
+    for (y in 0 until mh) for (x in 0 until mw) if ((a[y * mw + x] ushr 24) > 8) {
+        if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y
+    }
+    if (x1 < 0) { x0 = 0; y0 = 0; x1 = mw - 1; y1 = mh - 1 }   // all transparent: keep it all
+    val box = android.graphics.Rect((x0 / k).toInt(), (y0 / k).toInt(), minOf(src.width, ((x1 + 1) / k).toInt()), minOf(src.height, ((y1 + 1) / k).toInt()))
+    for (size in listOf(128, 96, 64)) {
+        val out = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+        val sc = size.toFloat() / maxOf(box.width(), box.height())
+        val dw = box.width() * sc; val dh = box.height() * sc
+        android.graphics.Canvas(out).drawBitmap(src, box, android.graphics.RectF((size - dw) / 2, (size - dh) / 2, (size + dw) / 2, (size + dh) / 2),
+            android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG))
+        val clear = IntArray(size * size).also { out.getPixels(it, 0, size, 0, 0, size, size) }.any { (it ushr 24) < 255 }
+        val bytes = java.io.ByteArrayOutputStream()
+        out.compress(if (clear) android.graphics.Bitmap.CompressFormat.PNG else android.graphics.Bitmap.CompressFormat.JPEG, 85, bytes)
+        val url = "data:image/${if (clear) "png" else "jpeg"};base64," + android.util.Base64.encodeToString(bytes.toByteArray(), android.util.Base64.NO_WRAP)
+        if (url.length < 45_000) return url
+    }
+    error("Picture too detailed to sync.")
 }
