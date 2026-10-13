@@ -17,7 +17,10 @@ fun Store.editPlan(key: String, f: (Plan) -> Plan) = update { st -> st.copy(plan
 
 /** Adds a line dated today, so it changes spendable money from today on, not for days already past. */
 fun Store.addLine(key: String, line: Line) = editPlan(key) { it.copy(lines = it.lines + line.copy(added = line.added ?: LocalDate.now().toString())) }
-fun Store.removeLine(key: String, id: String) = editPlan(key) { p -> p.copy(lines = p.lines.filterNot { it.id == id }) }
+/** Removes a line. A reservation already spent by "Buy now" stays: its purchase counts on it. */
+fun Store.removeLine(key: String, id: String) = update { st ->
+    st.copy(plans = st.plans + (key to st.planFor(key).let { p -> p.copy(lines = p.lines.filterNot { it.id == id && !st.isSpentReserve(it) }) }))
+}
 
 fun Store.saveTxn(t: Txn) = update { st ->
     val stamped = t.copy(updatedAt = System.currentTimeMillis())
@@ -32,11 +35,20 @@ private fun AppState.tombstone(t: Txn): Txn? =
  * Deletes a transaction. Deleting a planned item's "Buy now" expense puts the item back on the list,
  * with its reservations, so that money isn't left neither spent nor free.
  */
-fun Store.deleteTxn(id: String) = update { st ->
-    val plannedId = st.txns.firstOrNull { it.id == id }?.plannedId
-    st.copy(
-        txns = st.txns.mapNotNull { t -> if (t.id != id) t else st.tombstone(t) },
-        planned = st.planned.map { if (plannedId != null && it.id == plannedId) it.copy(status = PlannedStatus.OPEN) else it },
+fun Store.deleteTxn(id: String) = update { it.withoutTxn(id) }
+
+/**
+ * Deletes a transaction. Deleting a "Buy now" expense puts the item back on the planned list, where its
+ * reservations still are, so that money is neither spent nor lost.
+ */
+fun AppState.withoutTxn(id: String): AppState {
+    val t = txns.firstOrNull { it.id == id }
+    val pid = t?.plannedId
+    val back = if (t != null && pid != null && planned.none { it.id == pid })
+        Planned(id = pid, name = t.merchant, price = t.total, targetMonth = periodOf(LocalDate.parse(t.date)).key) else null
+    return copy(
+        txns = txns.mapNotNull { x -> if (x.id != id) x else tombstone(x) },
+        planned = planned.map { if (pid != null && it.id == pid) it.copy(status = PlannedStatus.OPEN) else it } + listOfNotNull(back),
     )
 }
 
@@ -67,17 +79,22 @@ fun AppState.withReserved(p: Planned, total: Long, today: LocalDate): AppState {
     })
 }
 
-/** Buys now: one expense for the full price; the part already reserved isn't counted twice. */
-fun Store.buyNow(p: Planned, category: String) = update { old ->
-    val st = if (old.reserved(p.id) > p.price) old.withReserved(p, p.price, LocalDate.now()) else old   // free any excess first
-    val reserved = st.reserved(p.id)
-    val txn = Txn(date = LocalDate.now().toString(), total = p.price, category = category, merchant = p.name,
-        note = "Planned purchase", plannedId = p.id, fromReserve = reserved)
-    st.copy(
-        txns = st.txns + txn,
-        planned = st.planned.map { if (it.id == p.id) it.copy(status = PlannedStatus.BOUGHT) else it },
-    )
+/**
+ * Buys now: one expense for the full price, and the item leaves the planned list. What was already reserved
+ * isn't counted twice; those reservations become part of the purchase and can't be removed on their own.
+ */
+fun Store.buyNow(p: Planned, category: String) = update { it.boughtNow(p, category, LocalDate.now()) }
+
+fun AppState.boughtNow(p: Planned, category: String, today: LocalDate): AppState {
+    val st = if (reserved(p.id) > p.price) withReserved(p, p.price, today) else this   // free any excess first
+    val txn = Txn(date = today.toString(), total = p.price, category = category, merchant = p.name,
+        note = "Planned purchase", plannedId = p.id, fromReserve = st.reserved(p.id))
+    return st.copy(txns = st.txns + txn, planned = st.planned.filterNot { it.id == p.id })
 }
+
+/** A reservation whose item was bought (or is no longer planned): spent, not set aside. */
+fun AppState.isSpentReserve(l: Line) =
+    l.kind == LineKind.RESERVE && l.plannedId != null && planned.none { it.id == l.plannedId && it.status == PlannedStatus.OPEN }
 
 /** Deleting an unbought item releases its reservations; a bought one keeps them (its expense relies on them). */
 fun Store.deletePlanned(id: String) = update { st ->

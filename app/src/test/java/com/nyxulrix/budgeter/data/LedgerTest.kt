@@ -2,6 +2,7 @@ package com.nyxulrix.budgeter.data
 
 import com.nyxulrix.budgeter.core.SplitMethod
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.LocalDate
@@ -84,6 +85,25 @@ class LedgerTest {
         assertEquals(10_000L - 27_000L / 27, day.budget)                  // today on: 1000 less a day over 27 days
         // Lines carried into the next month count from its first day.
         assertNull(base.copy(plans = mapOf("2026-09" to Plan(1, listOf(Line(kind = LineKind.FIXED, name = "Rent", amount = 1, added = "2026-09-20"))))).planFor("2026-10").lines.single().added)
+    }
+
+    @Test fun buyNowMovesTheItemToTxnsAndLocksItsReservation() {
+        val p = Planned(id = "p", name = "Phone", price = 100_000, targetMonth = "2026-10")
+        val sep = Line(id = "r", kind = LineKind.RESERVE, name = "Phone", amount = 30_000, plannedId = "p")
+        val st = AppState(setup, plans = mapOf("2026-09" to Plan(310_000, listOf(sep)), "2026-10" to Plan(310_000)), planned = listOf(p))
+        val bought = st.boughtNow(p, "Shopping", oct5)
+        assertTrue(bought.planned.isEmpty())
+        val t = bought.txns.single()
+        assertEquals(30_000L, t.fromReserve)
+        assertEquals(70_000L, bought.snapshot(oct5).spent)            // only the part not already set aside
+        assertTrue(bought.isSpentReserve(sep))                         // locked: it's part of the purchase now
+        assertTrue(!st.isSpentReserve(sep))
+        // Deleting the purchase puts the item back with its reservation.
+        val undone = bought.withoutTxn(t.id)
+        assertEquals(listOf("p"), undone.planned.map { it.id })
+        assertEquals(PlannedStatus.OPEN, undone.planned.single().status)
+        assertEquals(30_000L, undone.reserved("p"))
+        assertEquals(0L, undone.snapshot(oct5).spent)
     }
 
     @Test fun buyNowDoesNotDoubleCountReservation() {

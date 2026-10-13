@@ -34,6 +34,7 @@ import com.nyxulrix.budgeter.data.editPlan
 import com.nyxulrix.budgeter.data.periodOf
 import com.nyxulrix.budgeter.data.planFor
 import com.nyxulrix.budgeter.data.removeLine
+import com.nyxulrix.budgeter.data.isSpentReserve
 import com.nyxulrix.budgeter.data.setReserved
 import com.nyxulrix.budgeter.data.reserved
 import com.nyxulrix.budgeter.data.snapshot
@@ -92,7 +93,7 @@ fun BudgetScreen(st: AppState) {
             Small("Whatever you don't spend becomes savings when the month ends, including money you never budgeted. A month that goes over takes it back out.")
         }
 
-        val setAside = plan.lines.filter { it.kind == LineKind.RESERVE || it.kind == LineKind.TRIP_FUND }
+        val setAside = plan.lines.filter { (it.kind == LineKind.RESERVE && !st.isSpentReserve(it)) || it.kind == LineKind.TRIP_FUND }
         if (setAside.isNotEmpty()) FoldWindow("Set aside this month") {
             setAside.forEach { l ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -115,11 +116,7 @@ fun BudgetScreen(st: AppState) {
                 Rule()
             }
             PixelButton("+ Planned item", { nav.go(Screen.PlannedEdit()) }, art = R.drawable.icon_star)
-            val bought = st.planned.filter { it.status == PlannedStatus.BOUGHT }
-            if (bought.isNotEmpty()) {
-                Label("Bought")
-                bought.forEach { KeyValue("✓ ${it.name}", money(it.price, cur)) }
-            }
+            Small("Bought items move to Txns as an expense.")
         }
     }
     reserving?.let { pl -> ReserveDialog(st, pl) { reserving = null } }

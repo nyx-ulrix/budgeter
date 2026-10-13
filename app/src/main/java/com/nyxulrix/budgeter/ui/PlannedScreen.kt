@@ -71,10 +71,10 @@ fun PlannedScreen(st: AppState, id: String?) {
                 PixelButton("Reserve / change amount", { reserving = true }, Modifier.fillMaxWidth(), kind = Kind.SECONDARY)
             }
             Window("Buy now") {
-                Body("Records ${money(existing.price, cur)} as spent today. The ${money(res, cur)} already reserved isn't counted twice.")
+                Body("Records ${money(existing.price, cur)} as spent today and moves it to Txns. The ${money(res, cur)} already reserved isn't counted twice.")
                 Label("Category")
                 Choice(st.categories, category, { it }, { category = it })
-                PixelButton("Buy now", { App.store.buyNow(existing, category); nav.back() }, Modifier.fillMaxWidth())
+                PixelButton("Buy now", { App.store.buyNow(existing, category); nav.reset(Tab.TXNS) }, Modifier.fillMaxWidth())
             }
         }
         if (existing != null) PixelButton(if (existing.status == PlannedStatus.OPEN) "Delete (frees reserved money)" else "Delete", {
