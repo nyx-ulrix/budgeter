@@ -92,7 +92,8 @@ fun DateRefresh() {
 }
 
 /** What's left in the shared fund the day before [end] (today, for the month we're in): everything up to then carries over. */
-private fun leftBy(all: List<Tx>, end: LocalDate) = totals(all.filter { it.date < end.toString() }).left
+/** Each month stands alone: what was added in [p] minus what was spent in it. Nothing carries over between months. */
+fun monthLeft(all: List<Tx>, p: com.nyxulrix.budgeter.core.Period) = totals(all.filter { it.date >= p.start.toString() && it.date < p.end.toString() }).left
 
 /** A titled part of the Date budget fold. */
 @Composable
@@ -117,7 +118,7 @@ fun DateBudgetFold(st: AppState, period: Period) {
         val want = monthly(mine, step.every)
         if ((App.store.value.dateLine()?.amount ?: 0L) != want) setMyShare(want)
     }
-    FoldWindow(if (ds.phase == Phase.Ready) "Date budget · ${money(leftBy(ds.all, period.end), cur)} left" else "Date budget", key = "Date budget") {
+    FoldWindow(if (ds.phase == Phase.Ready) "Date budget · ${money(monthLeft(ds.all, period), cur)} left" else "Date budget", key = "Date budget") {
         ds.error?.let { Small("! $it", color = Px.red) }
         when (ds.phase) {
             Phase.SignedOut -> SignIn()
@@ -220,11 +221,10 @@ private fun Fund(cur: String, period: Period) {
     val partner = b.members.firstOrNull { it != ds.uid }
     var copied by remember { mutableStateOf(false) }
     val month = totals(ds.all.filter { it.date >= period.start.toString() && it.date < period.end.toString() })
-    val left = leftBy(ds.all, period.end)
+    val left = month.left
     Section("Shared fund") {
-        Label(if (period.end.isAfter(LocalDate.now())) "Left to spend" else "Left at the end of ${period.key}")
+        Label(if (period.end.isAfter(LocalDate.now())) "Left to spend this month" else "Left in ${period.key}")
         Text(money(left, cur), style = Type.hero, color = if (left < 0) Px.red else Px.brown)
-        KeyValue("Carried over into ${period.key}", money(leftBy(ds.all, period.start), cur))
         KeyValue("Added in ${period.key}", money(month.topped, cur))
         KeyValue("Spent in ${period.key}", money(month.spent, cur))
         Rule()

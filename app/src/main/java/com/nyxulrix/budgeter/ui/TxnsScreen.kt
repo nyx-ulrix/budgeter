@@ -49,7 +49,7 @@ fun TxnsScreen(st: AppState) {
         .filter { query.isBlank() || (it.merchant + " " + it.note + " " + it.items.joinToString { i -> i.name }).contains(query, true) }
         .filter { when (scope) { "Budget" -> it.tripId == null; "Trips" -> it.tripId != null; "Split" -> it.people > 1 || it.shares.size > 1; "Dates" -> false; else -> true } }
         .sortedByDescending { it.date + it.updatedAt.toString().padStart(15, '0') }
-    // Date budget entries (shared fund) join the list; they're not in "My share total" since the fund pays for them.
+    // Date budget entries (shared fund) join the list. Total = my share of each expense plus date spending (not top-ups).
     val ds by DateClient.state.collectAsState()
     DateRefresh()
     val dates = if (ds.phase != Phase.Ready || category != null || scope !in listOf("All", "Dates")) emptyList()
@@ -79,9 +79,9 @@ fun TxnsScreen(st: AppState) {
                 if (date != lastDate) { lastDate = date; Label(LocalDate.parse(date).let { "${it.dayOfWeek.name.take(3)} $it" }) }
                 if (r is Txn) TxnRow(st, r, trackPaid = true) else DateTxnRow(st, r as Tx)
             }
-            if (list.isNotEmpty()) {
+            if (rows.isNotEmpty()) {
                 Rule()
-                KeyValue("My share total", money(list.sumOf { it.myShare }, st.currency))
+                KeyValue("Total", money(list.sumOf { it.myShare } + dates.sumOf { if (it.kind == "expense") it.amount else 0L }, st.currency))
             }
         }
     }

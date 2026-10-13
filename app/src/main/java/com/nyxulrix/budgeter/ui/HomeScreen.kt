@@ -108,7 +108,7 @@ fun HomeScreen(st: AppState) {
                 else -> "${money(snap.left, cur)} left" + if (snap.target > 0) " · ${money(snap.target, cur)} kept for savings" else ""
             } + " · $daysLeft days to go · resets ${snap.period.end}")
             val ds by DateClient.state.collectAsState()
-            if (ds.phase == Phase.Ready) Small("Date fund: ${money(ds.left, cur)} left (shared, outside this budget)")
+            if (ds.phase == Phase.Ready) Small("Date fund: ${money(monthLeft(ds.all, snap.period), cur)} left this month (shared, outside this budget)")
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
