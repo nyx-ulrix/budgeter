@@ -47,20 +47,30 @@ data class DaySpend(val daily: Long, val monthly: Long = 0)
  * over the days left, so an unused day keeps later budgets steady and its leftover shows as the [Day.bonus].
  * Overspending and monthly-category spending use up the leftovers first, then lower every remaining day.
  * Leftovers never cross the period end; month-end leftovers become savings.
- * ponytail: replays from today's [spendable], so changing the budget mid-month re-scores earlier days; store spendable per day if that matters.
+ * [earlier] is spendable money as each earlier day saw it (lines are dated), so reserving or adding money today
+ * changes today and later, not days already past. Missing entries count as [spendable].
+ * ponytail: budget, income and target edits aren't dated, so changing those mid-month still re-scores earlier days.
  */
-fun today(spendable: Long, before: List<DaySpend>, spentToday: Long, monthlyToday: Long, date: LocalDate, period: Period): Day {
-    var pool = spendable.coerceAtLeast(0)   // month's money not yet spent
-    var bonus = 0L                           // of which: earlier days' leftovers
+fun today(
+    spendable: Long, before: List<DaySpend>, spentToday: Long, monthlyToday: Long, date: LocalDate, period: Period,
+    earlier: List<Long> = emptyList(),
+): Day {
+    var spent = 0L                         // spent so far this period
+    var bonus = 0L                         // earlier days' leftovers
     var d = period.start
-    for (s in before) {
-        val budget = (pool - bonus).coerceAtLeast(0) / ChronoUnit.DAYS.between(d, period.end).coerceAtLeast(1)
-        pool = (pool - s.daily - s.monthly).coerceAtLeast(0)
-        bonus = (bonus + budget - s.daily - s.monthly).coerceIn(0, pool)
+    fun pool(s: Long) = (s - spent).coerceAtLeast(0)
+    for ((i, s) in before.withIndex()) {
+        val p = pool(earlier.getOrElse(i) { spendable })
+        bonus = bonus.coerceAtMost(p)
+        val budget = (p - bonus) / ChronoUnit.DAYS.between(d, period.end).coerceAtLeast(1)
+        spent += s.daily + s.monthly
+        bonus = (bonus + budget - s.daily - s.monthly).coerceIn(0, (p - s.daily - s.monthly).coerceAtLeast(0))
         d = d.plusDays(1)
     }
-    val budget = (pool - bonus).coerceAtLeast(0) / ChronoUnit.DAYS.between(date, period.end).coerceAtLeast(1)
-    return Day(budget, spentToday, (bonus - monthlyToday).coerceIn(0, pool))
+    val p = pool(spendable)
+    bonus = bonus.coerceAtMost(p)
+    val budget = (p - bonus) / ChronoUnit.DAYS.between(date, period.end).coerceAtLeast(1)
+    return Day(budget, spentToday, (bonus - monthlyToday).coerceIn(0, p))
 }
 
 /** Spending speed against an even pace through the month. Being over the whole budget is separate ([Snapshot.over]). */

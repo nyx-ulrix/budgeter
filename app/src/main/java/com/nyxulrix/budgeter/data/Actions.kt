@@ -15,7 +15,8 @@ fun Store.editSetup(s: Setup) = update { it.copy(setup = s) }
 /** Edits the plan for [key], materialising the inherited plan first. */
 fun Store.editPlan(key: String, f: (Plan) -> Plan) = update { st -> st.copy(plans = st.plans + (key to f(st.planFor(key)))) }
 
-fun Store.addLine(key: String, line: Line) = editPlan(key) { it.copy(lines = it.lines + line) }
+/** Adds a line dated today, so it changes spendable money from today on, not for days already past. */
+fun Store.addLine(key: String, line: Line) = editPlan(key) { it.copy(lines = it.lines + line.copy(added = line.added ?: LocalDate.now().toString())) }
 fun Store.removeLine(key: String, id: String) = editPlan(key) { p -> p.copy(lines = p.lines.filterNot { it.id == id }) }
 
 fun Store.saveTxn(t: Txn) = update { st ->
@@ -55,7 +56,7 @@ fun AppState.withReserved(p: Planned, total: Long, today: LocalDate): AppState {
     if (delta > 0) {
         val key = periodOf(today).key
         val plan = planFor(key)
-        return copy(plans = plans + (key to plan.copy(lines = plan.lines + Line(kind = LineKind.RESERVE, name = p.name, amount = delta, plannedId = p.id))))
+        return copy(plans = plans + (key to plan.copy(lines = plan.lines + Line(kind = LineKind.RESERVE, name = p.name, amount = delta, plannedId = p.id, added = today.toString()))))
     }
     var cut = -delta
     return copy(plans = plans.toSortedMap(reverseOrder()).mapValues { (_, plan) ->

@@ -2,6 +2,7 @@ package com.nyxulrix.budgeter.data
 
 import com.nyxulrix.budgeter.core.SplitMethod
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.LocalDate
 
@@ -70,6 +71,19 @@ class LedgerTest {
         assertEquals(51_000L, s.keptAside)
         assertEquals(51_000L + s.day.bonusLeft, s.savedUp)
         assertEquals(23_416L, s.day.bonusLeft)
+    }
+
+    @Test fun reservingTodayLeavesEarlierDaysAlone() {
+        // 310000 over 31 days = 10000 a day; nothing spent Oct 1-4, so 40000 unused by Oct 5.
+        val base = AppState(setup, plans = mapOf("2026-10" to Plan(310_000)))
+        assertEquals(40_000L, base.snapshot(oct5).day.bonus)
+        val p = Planned(id = "p", name = "Phone", price = 81_000, targetMonth = "2026-12")
+        val reserved = base.withReserved(p, 27_000, oct5)               // set aside 270.00 today
+        val day = reserved.snapshot(oct5).day
+        assertEquals(40_000L, day.bonus)                                  // earlier days keep what they saved
+        assertEquals(10_000L - 27_000L / 27, day.budget)                  // today on: 1000 less a day over 27 days
+        // Lines carried into the next month count from its first day.
+        assertNull(base.copy(plans = mapOf("2026-09" to Plan(1, listOf(Line(kind = LineKind.FIXED, name = "Rent", amount = 1, added = "2026-09-20"))))).planFor("2026-10").lines.single().added)
     }
 
     @Test fun buyNowDoesNotDoubleCountReservation() {

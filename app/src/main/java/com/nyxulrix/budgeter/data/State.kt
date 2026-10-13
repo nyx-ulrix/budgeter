@@ -68,6 +68,7 @@ data class Line(
     val amount: Long,
     val plannedId: String? = null,
     val tripId: String? = null,
+    val added: String? = null,     // ISO day it was added; null = from the period's first day (carried over, or older data)
 )
 
 @Serializable
