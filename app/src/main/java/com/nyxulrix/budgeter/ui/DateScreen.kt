@@ -144,7 +144,7 @@ private fun Connect() {
     val scope = rememberCoroutineScope()
     var code by remember { mutableStateOf("") }
     var err by remember { mutableStateOf<String?>(null) }
-    fun run(f: suspend () -> Unit) { err = null; scope.launch { runCatching { f() }.onFailure { err = it.message } } }
+    fun run(f: suspend () -> Unit) { err = null; scope.launch { runCatching { f() }.onFailure { if (it !is kotlinx.coroutines.CancellationException) err = it.message } } }
     Window("Start a budget") {
         Small("You'll get a code to give your partner.")
         PixelButton("Start a budget", { run { DateClient.create() } })
@@ -207,7 +207,7 @@ private fun PlanWindow(cur: String) {
         PixelButton("Save", {
             err = null
             scope.launch {
-                runCatching { DateClient.setPlan(withBudget(plan, today(), v!!, every, if (every == Every.MONTH) d!! else 1)) }.onFailure { err = it.message }
+                runCatching { DateClient.setPlan(withBudget(plan, today(), v!!, every, if (every == Every.MONTH) d!! else 1)) }.onFailure { if (it !is kotlinx.coroutines.CancellationException) err = it.message }
             }
         }, enabled = ok)
         Small("Starts with the current period; earlier ones keep what they had. Set it to 0 to stop. For one-off extras, add a top-up.")
@@ -253,7 +253,7 @@ private fun TxForm(cur: String, tx: Tx?, onSave: suspend (TxDraft) -> Unit, onDo
             scope.launch {
                 runCatching { onSave(TxDraft(kind, v!!, note.trim(), date.toString())) }
                     .onSuccess { if (tx == null) { amount = ""; note = "" }; onDone() }
-                    .onFailure { err = it.message }
+                    .onFailure { if (it !is kotlinx.coroutines.CancellationException) err = it.message }
                 busy = false
             }
         }, Modifier.fillMaxWidth(), enabled = !busy && v != null && v > 0)

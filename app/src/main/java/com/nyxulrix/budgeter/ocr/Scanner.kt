@@ -84,8 +84,9 @@ class Scanner(private val ctx: Context, private val scope: CoroutineScope, priva
             val receipt = try {
                 if (provider == null) ReceiptText.parse(text, fallback)
                 else runCatching { Ai.parse(ctx, provider, text, fallback, st.categories, photo(uri)) }
-                    .getOrElse { Ai.parse(ctx, provider, text, fallback, st.categories) }
+                    .getOrElse { if (it is kotlinx.coroutines.CancellationException) throw it; Ai.parse(ctx, provider, text, fallback, st.categories) }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 toast((e.message ?: "AI failed.") + " Used the built-in reader instead.")
                 ReceiptText.parse(text, fallback)
             }

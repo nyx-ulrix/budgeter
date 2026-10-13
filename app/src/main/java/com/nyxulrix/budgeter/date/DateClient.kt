@@ -10,7 +10,9 @@ import com.nyxulrix.budgeter.core.Tx
 import com.nyxulrix.budgeter.core.budgetRows
 import com.nyxulrix.budgeter.core.steps
 import com.nyxulrix.budgeter.core.totals
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -103,6 +105,12 @@ object DateClient {
     private fun JsonElement?.str() = (this as? JsonPrimitive)?.takeIf { it.isString }?.content
     private fun JsonElement?.long() = (this as? JsonPrimitive)?.let { it.longOrNull ?: it.doubleOrNull?.toLong() }   // numbers, or "3600" as auth sends them
 
+    /**
+     * Date budget work runs at app level, not in the screen that started it: a screen that changes (signing in swaps
+     * the sign-in panel for the budget) or is left mid-way would otherwise cancel the sign-in or save half-done.
+     */
+    private suspend fun <T> detached(block: suspend () -> T): T = App.scope.async(Dispatchers.IO) { block() }.await()
+
     // --- HTTP ---
     private class Res(val code: Int, val body: JsonElement?)
 
@@ -158,7 +166,7 @@ object DateClient {
     }
 
     /** Signs in with a Google ID token (from Sign in with Google). */
-    suspend fun signIn(googleIdToken: String) {
+    suspend fun signIn(googleIdToken: String) = detached {
         set { copy(phase = Phase.Loading, error = null) }
         try {
             val j = post("https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=$KEY", buildJsonObject {
@@ -171,6 +179,7 @@ object DateClient {
             save(s)
             refresh()
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             set { copy(phase = Phase.SignedOut, error = e.message ?: "Sign-in failed.") }
         }
     }
@@ -182,14 +191,15 @@ object DateClient {
     }
 
     /** On app start: picks up the saved session, if any. */
-    suspend fun resume() {
-        val saved = Secrets.get(App.app, SESSION) ?: return
+    suspend fun resume() = detached {
+        val saved = Secrets.get(App.app, SESSION) ?: return@detached
         try {
             val s = Json.parseToJsonElement(saved).jsonObject
             session = Session("", 0, s["refresh"].str()!!, s["uid"].str()!!, s["name"].str().orEmpty())
             set { copy(phase = Phase.Loading) }
             refresh()
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             set { copy(phase = Phase.SignedOut) }
         }
     }
@@ -202,15 +212,15 @@ object DateClient {
     }
 
     /** Reloads the budget and its entries. */
-    suspend fun refresh() {
-        val s = session ?: return
+    suspend fun refresh() = detached {
+        val s = session ?: return@detached
         try {
             val q = api("POST", ":runQuery", Json.parseToJsonElement("""{"structuredQuery":{"from":[{"collectionId":"budgets"}],
                 "where":{"fieldFilter":{"field":{"fieldPath":"members"},"op":"ARRAY_CONTAINS","value":{"stringValue":${JsonPrimitive(s.uid)}}}},"limit":1}}"""))
             val doc = (q as? JsonArray).orEmpty().firstNotNullOfOrNull { (it as? JsonObject)?.get("document") as? JsonObject }
             if (doc == null) {
                 set { copy(phase = Phase.NoBudget, uid = s.uid, name = s.name, budget = null, txs = emptyList(), all = emptyList(), error = null) }
-                return
+                return@detached
             }
             val f = decFields(doc["fields"] as? JsonObject)
             val code = doc["name"].str().orEmpty().substringAfterLast('/')
@@ -241,6 +251,7 @@ object DateClient {
             val t = totals(all)
             set { copy(phase = Phase.Ready, uid = s.uid, name = s.name, budget = budget, txs = txs.toList(), all = all, left = t.left, topped = t.topped, spent = t.spent, error = null) }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             set { copy(error = e.message ?: "Couldn't load the date budget.") }
         }
     }
@@ -253,7 +264,7 @@ object DateClient {
     private fun code() = _state.value.budget?.code ?: throw Exception("No date budget yet.")
 
     /** Starts a new shared budget with you as its only member; the code is what your partner enters. */
-    suspend fun create() {
+    suspend fun create() = detached {
         val s = me()
         api("POST", "/budgets?documentId=${newCode()}", buildJsonObject {
             put("fields", fields(buildJsonObject {
@@ -265,7 +276,7 @@ object DateClient {
     }
 
     /** Joins your partner's budget with their code (as DateBudget does: add yourself to members and names). */
-    suspend fun join(code: String) {
+    suspend fun join(code: String) = detached {
         val c = code.trim().uppercase()
         try {
             val s = me()
@@ -285,6 +296,7 @@ object DateClient {
                 })))
             })
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             throw Exception("That code didn't work. Check it, or the budget may already have two people.")
         }
         refresh()
@@ -294,7 +306,7 @@ object DateClient {
         buildJsonObject { put("from", s.from); put("amount", s.amount); put("every", s.every.id); s.day?.let { put("day", it) } }
     })
 
-    suspend fun setPlan(plan: List<Step>) {
+    suspend fun setPlan(plan: List<Step>) = detached {
         api("PATCH", "/budgets/${code()}?updateMask.fieldPaths=plan", buildJsonObject { put("fields", fields(buildJsonObject { put("plan", planJson(plan)) })) })
         refresh()
     }
@@ -303,19 +315,19 @@ object DateClient {
         put("kind", d.kind); put("amount", d.amount); put("note", d.note); put("date", d.date); by?.let { put("by", it) }
     })
 
-    suspend fun addTx(d: TxDraft) {
+    suspend fun addTx(d: TxDraft) = detached {
         val s = me()
         api("POST", "/budgets/${code()}/tx", buildJsonObject { put("fields", txFields(d, s.uid)) })
         refresh()
     }
 
-    suspend fun updateTx(id: String, d: TxDraft) {
+    suspend fun updateTx(id: String, d: TxDraft) = detached {
         api("PATCH", "/budgets/${code()}/tx/$id?updateMask.fieldPaths=kind&updateMask.fieldPaths=amount&updateMask.fieldPaths=note&updateMask.fieldPaths=date",
             buildJsonObject { put("fields", txFields(d)) })
         refresh()
     }
 
-    suspend fun deleteTx(id: String) {
+    suspend fun deleteTx(id: String) = detached {
         api("DELETE", "/budgets/${code()}/tx/$id")
         refresh()
     }

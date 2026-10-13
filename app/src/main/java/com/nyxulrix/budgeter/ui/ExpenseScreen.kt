@@ -216,7 +216,7 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
         if (d.tripId == DATE) {   // the shared date fund, not my budget
             scope.launch {
                 runCatching { DateClient.addTx(TxDraft("expense", totalHome, (d.merchant.trim().ifEmpty { d.note.trim() }.ifEmpty { "Date" }).take(100), d.date.toString())) }
-                    .onSuccess { nav.back() }.onFailure { Toast.makeText(ctx, it.message, Toast.LENGTH_LONG).show() }
+                    .onSuccess { nav.back() }.onFailure { if (it !is kotlinx.coroutines.CancellationException) Toast.makeText(ctx, it.message, Toast.LENGTH_LONG).show() }
             }
             return
         }
@@ -370,7 +370,7 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
                     scope.launch {
                         runCatching { Ai.parse(ctx, providers.firstOrNull { it.id == id }, text, d.paidCur, st.categories) }
                             .onSuccess { d.load(it, d.paidCur) }
-                            .onFailure { Toast.makeText(ctx, it.message, Toast.LENGTH_LONG).show() }
+                            .onFailure { if (it !is kotlinx.coroutines.CancellationException) Toast.makeText(ctx, it.message, Toast.LENGTH_LONG).show() }
                         rereading = false
                     }
                 })

@@ -142,7 +142,7 @@ fun AiScreen() {
                         PixelButton("Test", {
                             scope.launch {
                                 val msg = runCatching { Ai.chat(ctx, p, "Reply with the single word OK.", "Say OK.") }
-                                    .fold({ "${p.label} answered: ${it.take(40)}" }, { it.message ?: "Failed" })
+                                    .fold({ "${p.label} answered: ${it.take(40)}" }, { if (it is kotlinx.coroutines.CancellationException) throw it; it.message ?: "Failed" })
                                 Toast.makeText(ctx, msg, Toast.LENGTH_LONG).show()
                             }
                         }, kind = Kind.SECONDARY)
