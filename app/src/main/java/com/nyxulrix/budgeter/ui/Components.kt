@@ -104,8 +104,8 @@ fun Window(
 
 /** Window that folds to its title bar. */
 @Composable
-fun FoldWindow(title: String, open: Boolean = false, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    var isOpen by remember(title) { mutableStateOf(open) }   // resets when the screen is left: folds close on tab switch
+fun FoldWindow(title: String, open: Boolean = false, modifier: Modifier = Modifier, key: Any = title, content: @Composable ColumnScope.() -> Unit) {
+    var isOpen by remember(key) { mutableStateOf(open) }   // resets when the screen is left: folds close on tab switch
     Column(modifier.fillMaxWidth().pixelShadow().frame()) {
         Row(
             Modifier.fillMaxWidth().background(if (isOpen) Px.orange else Px.cream).heightIn(min = 44.dp)

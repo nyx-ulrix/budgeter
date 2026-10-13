@@ -6,6 +6,7 @@ import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -35,11 +36,13 @@ import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.nyxulrix.budgeter.App
 import com.nyxulrix.budgeter.core.Every
+import com.nyxulrix.budgeter.core.Period
 import com.nyxulrix.budgeter.core.Tx
-import com.nyxulrix.budgeter.core.currentStep
+import com.nyxulrix.budgeter.core.contributions
 import com.nyxulrix.budgeter.core.money
 import com.nyxulrix.budgeter.core.parseMoney
 import com.nyxulrix.budgeter.core.plain
+import com.nyxulrix.budgeter.core.totals
 import com.nyxulrix.budgeter.core.withBudget
 import com.nyxulrix.budgeter.data.AppState
 import com.nyxulrix.budgeter.data.Line
@@ -79,36 +82,88 @@ private fun setMyShare(amount: Long) {
     }
 }
 
+/** Keeps the shared budget fresh while a tab showing it is open: the partner's changes show within seconds. */
 @Composable
-fun DateScreen(st: AppState) {
-    val ds by DateClient.state.collectAsState()
-    val cur = st.currency
+fun DateRefresh() {
     val owner = LocalLifecycleOwner.current
-    LaunchedEffect(owner) {   // while the app is on screen; the partner's changes show within seconds
+    LaunchedEffect(owner) {   // while the app is on screen
         owner.repeatOnLifecycle(Lifecycle.State.STARTED) { while (true) { DateClient.refresh(); delay(10_000) } }
     }
-    Page {
-        PageHeader("Date budget")
+}
+
+/** What's left in the shared fund the day before [end] (today, for the month we're in): everything up to then carries over. */
+private fun leftBy(all: List<Tx>, end: LocalDate) = totals(all.filter { it.date < end.toString() }).left
+
+/** A titled part of the Date budget fold. */
+@Composable
+private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) =
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { Rule(); Label(title); content() }
+
+/**
+ * Budget tab: everything to set up the shared date budget (same data as the DateBudget app), for the month the tab
+ * shows. Its expenses and top-ups are in Txns with everything else; date expenses are added like any expense, with
+ * Count toward → Date budget.
+ */
+@Composable
+fun DateBudgetFold(st: AppState, period: Period) {
+    val ds by DateClient.state.collectAsState()
+    val cur = st.currency
+    DateRefresh()
+    LaunchedEffect(ds.budget) {   // a split changed on the partner's side moves my set-aside too
+        val b = ds.budget ?: return@LaunchedEffect
+        val uid = ds.uid ?: return@LaunchedEffect
+        val (step, mine) = contributions(b.plan, today(), uid, b.members.firstOrNull { it != uid })
+        if (step?.split == null) return@LaunchedEffect   // no agreed split yet: leave my set-aside alone
+        val want = monthly(mine, step.every)
+        if ((App.store.value.dateLine()?.amount ?: 0L) != want) setMyShare(want)
+    }
+    FoldWindow(if (ds.phase == Phase.Ready) "Date budget · ${money(leftBy(ds.all, period.end), cur)} left" else "Date budget", key = "Date budget") {
         ds.error?.let { Small("! $it", color = Px.red) }
         when (ds.phase) {
             Phase.SignedOut -> SignIn()
             Phase.Loading -> SteppedBar()
             Phase.NoBudget -> Connect()
             Phase.Ready -> {
-                Fund(cur)
+                Fund(cur, period)
                 PlanWindow(cur)
                 ShareWindow(st, cur)
-                Window("Add") { TxForm(cur, null, { DateClient.addTx(it) }) }
-                History(cur)
+                Section("One-off top up or expense") { TxForm(cur, null, { DateClient.addTx(it) }) }
             }
         }
         if (ds.phase != Phase.SignedOut) PixelButton("Sign out of the date budget", { DateClient.signOut() }, Modifier.fillMaxWidth(), kind = Kind.SECONDARY)
     }
 }
 
+/** A date budget entry in the Txns list. Tap to edit or delete; it's paid from the shared fund, not my budget. */
+@Composable
+fun DateTxnRow(st: AppState, tx: Tx) {
+    val scope = rememberCoroutineScope()
+    val ds by DateClient.state.collectAsState()
+    val cur = st.currency
+    var editing by remember { mutableStateOf(false) }
+    val expense = tx.kind == "expense"
+    Column(
+        Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(role = Role.Button, onClickLabel = "Edit") { editing = true }.padding(vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Body(tx.note.ifEmpty { if (expense) "Date" else "Top up" }, Modifier.weight(1f))
+            Text((if (expense) "" else "+") + money(tx.amount, cur), style = Type.body, color = if (expense) Px.brown else Px.green)
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Chip("Date budget", Px.blue)
+            Small("${if (expense) "Shared fund" else "Added to the shared fund"} · ${ds.budget?.names?.get(tx.by) ?: "Partner"}")
+        }
+    }
+    if (editing) PixelDialog("Date budget", { editing = false }) {
+        TxForm(cur, tx, { DateClient.updateTx(tx.id, it) }) { editing = false }
+        PixelButton("Delete", { editing = false; scope.launch { runCatching { DateClient.deleteTx(tx.id) } } }, Modifier.fillMaxWidth(), kind = Kind.DANGER)
+    }
+}
+
 @Composable
 private fun SignIn() {
-    Window("Date budget") {
+    Section("Sign in") {
         Body("One shared fund for your dates, with your partner. It's the same budget as the DateBudget app, so either of you can use either app.")
         if (!DateClient.configured) Small("Date budget isn't set up in this build.")
         else SignInButton()
@@ -132,7 +187,7 @@ private fun SignInButton() {
             } catch (_: GetCredentialCancellationException) {
                 // Closed the account picker: nothing to say.
             } catch (e: Exception) {
-                err = e.message ?: "Google sign-in failed."
+                if (e !is kotlinx.coroutines.CancellationException) err = e.message ?: "Google sign-in failed."
             }
         }
     }, Modifier.fillMaxWidth())
@@ -145,29 +200,33 @@ private fun Connect() {
     var code by remember { mutableStateOf("") }
     var err by remember { mutableStateOf<String?>(null) }
     fun run(f: suspend () -> Unit) { err = null; scope.launch { runCatching { f() }.onFailure { if (it !is kotlinx.coroutines.CancellationException) err = it.message } } }
-    Window("Start a budget") {
+    Section("Start a budget") {
         Small("You'll get a code to give your partner.")
         PixelButton("Start a budget", { run { DateClient.create() } })
     }
-    Window("Join your partner") {
+    Section("Join your partner") {
         PixelField(code, { code = it.uppercase().take(8) }, "Code", placeholder = "ABCD2345")
         PixelButton("Join", { run { DateClient.join(code) } }, enabled = code.trim().length == 8)
         err?.let { Small("! $it", color = Px.red) }
     }
 }
 
+/** The fund for the month picked in the Budget tab: that month's top-ups and spending, and what carries over. */
 @Composable
-private fun Fund(cur: String) {
+private fun Fund(cur: String, period: Period) {
     val ctx = LocalContext.current
     val ds by DateClient.state.collectAsState()
     val b = ds.budget ?: return
     val partner = b.members.firstOrNull { it != ds.uid }
     var copied by remember { mutableStateOf(false) }
-    Window("Date fund.exe") {
-        Label("Left to spend")
-        Text(money(ds.left, cur), style = Type.hero, color = if (ds.left < 0) Px.red else Px.brown)
-        KeyValue("Added", money(ds.topped, cur))
-        KeyValue("Spent", money(ds.spent, cur))
+    val month = totals(ds.all.filter { it.date >= period.start.toString() && it.date < period.end.toString() })
+    val left = leftBy(ds.all, period.end)
+    Section("Shared fund") {
+        Label(if (period.end.isAfter(LocalDate.now())) "Left to spend" else "Left at the end of ${period.key}")
+        Text(money(left, cur), style = Type.hero, color = if (left < 0) Px.red else Px.brown)
+        KeyValue("Carried over into ${period.key}", money(leftBy(ds.all, period.start), cur))
+        KeyValue("Added in ${period.key}", money(month.topped, cur))
+        KeyValue("Spent in ${period.key}", money(month.spent, cur))
         Rule()
         if (partner != null) Small("Shared with ${b.names[partner] ?: "your partner"}.")
         else {
@@ -184,51 +243,61 @@ private fun Fund(cur: String) {
     }
 }
 
+/**
+ * The recurring budget for both of you: each person's contribution, added together every week, 2 weeks or month.
+ * The split rides along on the plan step (DateBudget ignores it), and my part becomes my monthly set-aside.
+ */
 @Composable
 private fun PlanWindow(cur: String) {
     val scope = rememberCoroutineScope()
     val ds by DateClient.state.collectAsState()
-    val plan = ds.budget?.plan.orEmpty()
-    val step = currentStep(plan, today())
-    var amount by remember { mutableStateOf(step?.let { plain(it.amount, cur) } ?: "") }
+    val b = ds.budget ?: return
+    val uid = ds.uid ?: return
+    val partner = b.members.firstOrNull { it != uid }
+    val partnerName = partner?.let { b.names[it] } ?: "Your partner"
+    val (step, m0, t0) = contributions(b.plan, today(), uid, partner)
+    var mine by remember { mutableStateOf(step?.let { plain(m0, cur) } ?: "") }
+    var theirs by remember { mutableStateOf(step?.let { plain(t0, cur) } ?: "") }
     var every by remember { mutableStateOf(step?.every ?: Every.MONTH) }
     var day by remember { mutableStateOf((step?.day ?: 1).toString()) }
     var err by remember { mutableStateOf<String?>(null) }
-    val v = if (amount.isBlank()) 0L else parseMoney(amount, cur)
+    val mv = if (mine.isBlank()) 0L else parseMoney(mine, cur)
+    val tv = if (theirs.isBlank()) 0L else parseMoney(theirs, cur)
     val d = day.toIntOrNull()
-    val ok = v != null && v >= 0 && (every != Every.MONTH || (d != null && d in 1..31))
-    Window("Budget") {
+    val ok = mv != null && tv != null && mv >= 0 && tv >= 0 && (every != Every.MONTH || (d != null && d in 1..31))
+    val total = (mv ?: 0) + (tv ?: 0)
+    Section("Budget for both of you") {
         Small(if (step != null && step.amount > 0)
-            "${money(step.amount, cur)} is added every ${step.every.label}" + (if (step.every == Every.MONTH) " on day ${step.day ?: 1}." else " (on Monday).")
+            "${money(step.amount, cur)} is added every ${step.every.label}" + (if (step.every == Every.MONTH) " on day ${step.day ?: 1}" else " (on Monday)") +
+                ": you ${money(m0, cur)}, $partnerName ${money(t0, cur)}."
         else "No recurring budget yet.")
-        PixelField(amount, { amount = it }, "Add ($cur)", keyboard = KeyboardType.Decimal, placeholder = "0.00", error = if (v == null) "Not a number" else null)
+        PixelField(mine, { mine = it }, "You put in ($cur)", keyboard = KeyboardType.Decimal, placeholder = "0.00", error = if (mv == null) "Not a number" else null)
+        PixelField(theirs, { theirs = it }, "$partnerName puts in ($cur)", keyboard = KeyboardType.Decimal, placeholder = "0.00", error = if (tv == null) "Not a number" else null)
         Choice(Every.entries, every, { "Every ${it.label}" }, { every = it })
         if (every == Every.MONTH) PixelField(day, { s -> day = s.filter(Char::isDigit).take(2) }, "On day (1-31)", keyboard = KeyboardType.Number)
+        KeyValue("Total every ${every.label}", money(total, cur))
         PixelButton("Save", {
             err = null
+            val e = every
             scope.launch {
-                runCatching { DateClient.setPlan(withBudget(plan, today(), v!!, every, if (every == Every.MONTH) d!! else 1)) }.onFailure { if (it !is kotlinx.coroutines.CancellationException) err = it.message }
+                runCatching {
+                    DateClient.setPlan(withBudget(b.plan, today(), total, e, if (e == Every.MONTH) d!! else 1, mapOf(uid to mv!!, (partner ?: "partner") to tv!!)))
+                    setMyShare(monthly(mv, e))
+                }.onFailure { if (it !is kotlinx.coroutines.CancellationException) err = it.message }
             }
         }, enabled = ok)
-        Small("Starts with the current period; earlier ones keep what they had. Set it to 0 to stop. For one-off extras, add a top-up.")
+        Small("Starts with the current period; earlier ones keep what they had. Set both to 0 to stop. For one-off extras, add a top-up.")
         err?.let { Small("! $it", color = Px.red) }
     }
 }
 
+/** My contribution, set aside from my own budget every month (a fixed cost that follows the split). */
 @Composable
 private fun ShareWindow(st: AppState, cur: String) {
-    val ds by DateClient.state.collectAsState()
-    val step = currentStep(ds.budget?.plan.orEmpty(), today())
     val line = st.dateLine()
-    val suggested = step?.let { Math.round(monthly(it.amount, it.every) / 2.0) } ?: 0L
-    var text by remember { mutableStateOf(line?.let { plain(it.amount, cur) } ?: if (suggested > 0) plain(suggested, cur) else "") }
-    val v = if (text.isBlank()) 0L else parseMoney(text, cur)
-    Window("My share") {
-        Body(if (line != null) "${money(line.amount, cur)} a month is set aside from your budget for dates." else "Set aside your share each month from your own budget.")
-        PixelField(text, { text = it }, "Each month ($cur)", keyboard = KeyboardType.Decimal, placeholder = "0.00", error = if (v == null) "Not a number" else null)
-        if (suggested > 0) Small("Half of the shared budget is about ${money(suggested, cur)} a month.")
-        PixelButton("Set", { setMyShare(v!!) }, kind = Kind.SECONDARY, enabled = v != null && v != (line?.amount ?: 0L))
-        Small("It's a fixed cost in your budget from this month on, so your daily budget already allows for it. Date spending then comes out of the shared fund only: tag an expense \"Date budget\" under Count toward.")
+    Section("From your budget") {
+        Body(if (line != null) "${money(line.amount, cur)} a month is set aside from your budget for dates." else "Nothing is set aside from your budget yet. Save your contribution above.")
+        Small("It follows what you put in (weekly and 2-weekly amounts are turned into a monthly figure). It's a fixed cost from this month on, so your daily budget already allows for it. Date spending then comes out of the shared fund only: add an expense as usual and pick Date budget under Count toward.")
     }
 }
 
@@ -258,44 +327,5 @@ private fun TxForm(cur: String, tx: Tx?, onSave: suspend (TxDraft) -> Unit, onDo
             }
         }, Modifier.fillMaxWidth(), enabled = !busy && v != null && v > 0)
         err?.let { Small("! $it", color = Px.red) }
-    }
-}
-
-@Composable
-private fun History(cur: String) {
-    val scope = rememberCoroutineScope()
-    val ds by DateClient.state.collectAsState()
-    var editing by remember { mutableStateOf<Tx?>(null) }
-    var deleting by remember { mutableStateOf<Tx?>(null) }
-    Window("History") {
-        if (ds.all.isEmpty()) Small("Nothing yet. Add your first date.")
-        ds.all.forEach { t ->
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Column(Modifier.weight(1f)) {
-                        Body(t.note.ifEmpty { if (t.kind == "expense") "Expense" else "Top up" })
-                        Small(t.date + if (t.auto) "" else " · ${ds.budget?.names?.get(t.by) ?: "Partner"}")
-                    }
-                    Text((if (t.kind == "expense") "−" else "+") + money(t.amount, cur), style = Type.body, color = if (t.kind == "expense") Px.brown else Px.green)
-                }
-                if (!t.auto) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Small("Edit", Modifier.heightIn(min = 32.dp).clickable(role = Role.Button) { editing = t }.padding(4.dp), color = Px.blue)
-                    Small("Delete", Modifier.heightIn(min = 32.dp).clickable(role = Role.Button) { deleting = t }.padding(4.dp), color = Px.red)
-                }
-                Rule()
-            }
-        }
-    }
-    editing?.let { t ->
-        PixelDialog("Edit", { editing = null }) { TxForm(cur, t, { DateClient.updateTx(t.id, it) }) { editing = null } }
-    }
-    deleting?.let { t ->
-        PixelDialog("Delete", { deleting = null }) {
-            Body("Delete ${money(t.amount, cur)} ${t.note.ifEmpty { t.kind }}?")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PixelButton("Delete", { deleting = null; scope.launch { runCatching { DateClient.deleteTx(t.id) } } }, kind = Kind.DANGER)
-                PixelButton("Cancel", { deleting = null }, kind = Kind.SECONDARY)
-            }
-        }
     }
 }

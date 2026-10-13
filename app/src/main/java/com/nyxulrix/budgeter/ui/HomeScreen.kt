@@ -107,6 +107,8 @@ fun HomeScreen(st: AppState) {
                 snap.dipping -> "${money(snap.dipped, cur)} of your ${money(snap.target, cur)} savings target spent"
                 else -> "${money(snap.left, cur)} left" + if (snap.target > 0) " · ${money(snap.target, cur)} kept for savings" else ""
             } + " · $daysLeft days to go · resets ${snap.period.end}")
+            val ds by DateClient.state.collectAsState()
+            if (ds.phase == Phase.Ready) Small("Date fund: ${money(ds.left, cur)} left (shared, outside this budget)")
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -125,12 +127,6 @@ fun HomeScreen(st: AppState) {
                 Small("Trip spending doesn't touch your daily budget.")
                 PixelButton("Open trip", { nav.go(Screen.TripView(trip.id)) }, kind = Kind.SECONDARY)
             }
-        }
-
-        val ds by DateClient.state.collectAsState()
-        if (ds.phase == Phase.Ready) FoldWindow("Date budget") {
-            Body("${money(ds.left, cur)} left to spend on dates", color = if (ds.left < 0) Px.red else Px.brown)
-            PixelButton("Open date budget", { nav.go(Screen.Date) }, kind = Kind.SECONDARY)
         }
 
         val top = st.planned.filter { it.status == PlannedStatus.OPEN }.sortedWith(compareBy({ it.priority }, { it.targetMonth })).take(2)

@@ -109,6 +109,7 @@ fun BudgetScreen(st: AppState) {
 
 
         TripsWindow(st)
+        DateBudgetFold(st, p)
 
         FoldWindow("Planned purchases") {
             val open = st.planned.filter { it.status == PlannedStatus.OPEN }.sortedWith(compareBy({ it.priority }, { it.targetMonth }))

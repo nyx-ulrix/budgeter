@@ -76,7 +76,6 @@ fun ProfileScreen(st: AppState) {
         Window("Settings") {
             PixelButton("Country, currency, month start", { nav.go(Screen.EditSetup) }, Modifier.fillMaxWidth(), kind = Kind.SECONDARY)
             PixelButton("AI receipt reading", { nav.go(Screen.Ai) }, Modifier.fillMaxWidth(), kind = Kind.SECONDARY, art = R.drawable.icon_receipt)
-            PixelButton("Date budget (shared)", { nav.go(Screen.Date) }, Modifier.fillMaxWidth(), kind = Kind.SECONDARY, art = R.drawable.icon_heart)
             PixelButton("Google Sheets sync", { nav.go(Screen.Sync) }, Modifier.fillMaxWidth(), kind = Kind.SECONDARY, glyph = Glyphs.sync)
             PixelButton("Credits", { nav.go(Screen.Credits) }, Modifier.fillMaxWidth(), kind = Kind.SECONDARY, art = R.drawable.icon_heart)
         }

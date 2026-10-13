@@ -31,9 +31,10 @@ enum class Every(val id: String, val label: String) { WEEK("week", "week"), FORT
  * The budget: [amount] cents is added every week, 2 weeks or month, starting with the period that begins on [from].
  * Weeks begin on Monday and months on the 1st, so [from] is always the first day of a period. A monthly top-up lands on
  * [day] of the month (1-31, the last day in shorter months); weekly ones land on the Monday.
- * A plan is a list of these changes, so periods already gone keep the amount they had.
+ * A plan is a list of these changes, so periods already gone keep the amount they had. [split] is who puts in what
+ * (uid, or "partner" before they joined, to cents); only Budgeter writes it and DateBudget ignores it.
  */
-data class Step(val from: String, val amount: Long, val every: Every, val day: Int? = null)
+data class Step(val from: String, val amount: Long, val every: Every, val day: Int? = null, val split: Map<String, Long>? = null)
 
 private const val SAFE = 9007199254740991L   // JavaScript's Number.MAX_SAFE_INTEGER: what the other apps accept
 
@@ -62,8 +63,9 @@ fun steps(plan: JsonElement?): List<Step> = valid((plan as? JsonArray).orEmpty()
     val day = o["day"]
     val dayOk = day == null || whole(day)?.let { it in 1..31 } == true
     val amount = whole(o["amount"])
+    val split = (o["split"] as? JsonObject)?.mapNotNull { (k, v) -> whole(v)?.let { k to it } }?.toMap()
     if (from == null || every == null || !dayOk || amount == null) null
-    else Step(from, amount, every, day?.let { whole(it)!!.toInt() })
+    else Step(from, amount, every, day?.let { whole(it)!!.toInt() }, split)
 })
 
 /** The same checks for a plan already in hand, sorted by start. */
@@ -107,9 +109,21 @@ fun currentStep(plan: List<Step>, today: String): Step? = valid(plan).lastOrNull
  * New plan with [amount] every [every] (on [day] for months), starting with the current period. Earlier periods keep
  * what they had; setting it again in the same period replaces it, which also moves this period's top-up to the new day.
  */
-fun withBudget(plan: List<Step>, today: String, amount: Long, every: Every, day: Int = 1): List<Step> {
+fun withBudget(plan: List<Step>, today: String, amount: Long, every: Every, day: Int = 1, split: Map<String, Long>? = null): List<Step> {
     val from = periodStart(today, every)
-    return valid(plan).filter { it.from < from } + Step(from, amount, every, if (every == Every.MONTH) day else null)
+    return valid(plan).filter { it.from < from } + Step(from, amount, every, if (every == Every.MONTH) day else null, split)
+}
+
+data class Contributions(val step: Step?, val mine: Long, val theirs: Long)
+
+/** Who puts in what for the step in force today: its split, else half each (mine rounded up). */
+fun contributions(plan: List<Step>, today: String, uid: String, partnerUid: String?): Contributions {
+    val step = currentStep(plan, today)
+    val split = step?.split.orEmpty()
+    val amount = step?.amount ?: 0
+    val mine = split[uid] ?: ((amount + 1) / 2)
+    val theirs = partnerUid?.let { split[it] } ?: split["partner"] ?: (amount - mine)
+    return Contributions(step, mine, theirs)
 }
 
 data class Totals(val topped: Long, val spent: Long, val left: Long)

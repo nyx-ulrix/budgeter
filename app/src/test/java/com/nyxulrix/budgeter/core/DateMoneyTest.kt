@@ -39,6 +39,18 @@ class DateMoneyTest {
         assertEquals(3, weekly.size)
     }
 
+    @Test fun splitIsReadKeptAndDefaultsToHalves() {
+        val plan = steps(Json.parseToJsonElement("""[{"from":"2026-10-01","amount":10001,"every":"month","day":1,"split":{"me":6001,"partner":4000,"bad":"x"}}]"""))
+        assertEquals(mapOf("me" to 6001L, "partner" to 4000L), plan.single().split)
+        assertEquals(Contributions(plan.single(), 6001, 4000), contributions(plan, "2026-10-13", "me", null))
+        assertEquals(4000L, contributions(plan, "2026-10-13", "me", "her").theirs)   // "partner" until she has her own entry
+        val noSplit = listOf(Step("2026-10-01", 10001, Every.MONTH))
+        assertEquals(Contributions(noSplit.single(), 5001, 5000), contributions(noSplit, "2026-10-13", "me", "her"))
+        // A new step leaves earlier ones and their split alone.
+        val next = withBudget(listOf(Step("2026-09-01", 100, Every.MONTH, 1, mapOf("me" to 100L))), "2026-10-13", 300, Every.MONTH, 1, mapOf("me" to 200L, "her" to 100L))
+        assertEquals(listOf(mapOf("me" to 100L), mapOf("me" to 200L, "her" to 100L)), next.map { it.split })
+    }
+
     @Test fun totalsAreTopupsMinusExpenses() {
         val t = totals(listOf(
             Tx("a", "topup", 5000, "", "2026-10-01", "u"),

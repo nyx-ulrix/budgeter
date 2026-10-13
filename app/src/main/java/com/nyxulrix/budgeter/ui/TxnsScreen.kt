@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -20,6 +21,9 @@ import androidx.compose.ui.unit.dp
 import com.nyxulrix.budgeter.R
 import com.nyxulrix.budgeter.core.Period
 import com.nyxulrix.budgeter.core.money
+import com.nyxulrix.budgeter.core.Tx
+import com.nyxulrix.budgeter.date.DateClient
+import com.nyxulrix.budgeter.date.Phase
 import com.nyxulrix.budgeter.data.AppState
 import com.nyxulrix.budgeter.data.Txn
 import com.nyxulrix.budgeter.data.ME
@@ -43,8 +47,14 @@ fun TxnsScreen(st: AppState) {
         .filter { LocalDate.parse(it.date) in p }
         .filter { category == null || it.category == category || it.items.any { i -> i.category == category } }
         .filter { query.isBlank() || (it.merchant + " " + it.note + " " + it.items.joinToString { i -> i.name }).contains(query, true) }
-        .filter { when (scope) { "Budget" -> it.tripId == null; "Trips" -> it.tripId != null; "Split" -> it.people > 1 || it.shares.size > 1; else -> true } }
+        .filter { when (scope) { "Budget" -> it.tripId == null; "Trips" -> it.tripId != null; "Split" -> it.people > 1 || it.shares.size > 1; "Dates" -> false; else -> true } }
         .sortedByDescending { it.date + it.updatedAt.toString().padStart(15, '0') }
+    // Date budget entries (shared fund) join the list; they're not in "My share total" since the fund pays for them.
+    val ds by DateClient.state.collectAsState()
+    DateRefresh()
+    val dates = if (ds.phase != Phase.Ready || category != null || scope !in listOf("All", "Dates")) emptyList()
+        else ds.txs.filter { runCatching { LocalDate.parse(it.date) in p }.getOrDefault(false) && (query.isBlank() || it.note.contains(query, true)) }
+    val rows: List<Pair<String, Any>> = (list.map { it.date to it } + dates.map { it.date to it }).sortedByDescending { it.first }
 
     Page {
         Window("Transactions") {
@@ -58,16 +68,16 @@ fun TxnsScreen(st: AppState) {
         val active = query.isNotBlank() || scope != "All" || category != null
         FoldWindow(if (active) "Search & filters (on)" else "Search & filters", open = false) {
             PixelField(query, { query = it }, "", placeholder = "Search merchant, item, note")
-            Choice(listOf("All", "Budget", "Trips", "Split"), scope, { it }, { scope = it })
+            Choice(listOf("All", "Budget", "Trips", "Split", "Dates"), scope, { it }, { scope = it })
             Choice(listOf<String?>(null) + st.categories, category, { it ?: "Any category" }, { category = it })
             if (active) PixelButton("Clear", { query = ""; scope = "All"; category = null }, kind = Kind.SECONDARY)
         }
-        Window("${list.size} items") {
-            if (list.isEmpty()) Small("Nothing here.")
+        Window("${rows.size} items") {
+            if (rows.isEmpty()) Small("Nothing here.")
             var lastDate = ""
-            list.forEach { t ->
-                if (t.date != lastDate) { lastDate = t.date; Label(LocalDate.parse(t.date).let { "${it.dayOfWeek.name.take(3)} $it" }) }
-                TxnRow(st, t, trackPaid = true)
+            rows.forEach { (date, r) ->
+                if (date != lastDate) { lastDate = date; Label(LocalDate.parse(date).let { "${it.dayOfWeek.name.take(3)} $it" }) }
+                if (r is Txn) TxnRow(st, r, trackPaid = true) else DateTxnRow(st, r as Tx)
             }
             if (list.isNotEmpty()) {
                 Rule()

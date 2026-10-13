@@ -303,7 +303,8 @@ object DateClient {
     }
 
     private fun planJson(plan: List<Step>) = JsonArray(plan.map { s ->
-        buildJsonObject { put("from", s.from); put("amount", s.amount); put("every", s.every.id); s.day?.let { put("day", it) } }
+        buildJsonObject { put("from", s.from); put("amount", s.amount); put("every", s.every.id); s.day?.let { put("day", it) }
+            s.split?.let { put("split", JsonObject(it.mapValues { (_, v) -> JsonPrimitive(v) })) } }
     })
 
     suspend fun setPlan(plan: List<Step>) = detached {

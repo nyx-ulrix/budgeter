@@ -59,7 +59,6 @@ sealed interface Screen {
     data class TripView(val id: String) : Screen
     data object Ai : Screen
     data object Sync : Screen
-    data object Date : Screen
     data object EditSetup : Screen
     data object Credits : Screen
     data object Camera : Screen
@@ -111,7 +110,6 @@ fun Root(nav: Nav) {
                         is Screen.TripView -> TripScreen(st, top.id)
                         Screen.Ai -> AiScreen()
                         Screen.Sync -> SyncScreen(st)
-                        Screen.Date -> DateScreen(st)
                         Screen.EditSetup -> SetupScreen(st.setup)
                         Screen.Credits -> CreditsScreen()
                         Screen.Camera -> CameraScreen()
