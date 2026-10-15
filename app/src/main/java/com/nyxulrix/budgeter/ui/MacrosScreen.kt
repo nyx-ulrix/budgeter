@@ -199,7 +199,8 @@ fun MealDialog(st: AppState, meal: Meal, onDone: () -> Unit) {
     val values = remember { mutableStateMapOf<String, String>().apply { putAll(toText(meal.macros)) } }
     var all by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
-    var grams by remember { mutableStateOf("100") }
+    var amount by remember { mutableStateOf("1") }
+    var unit by remember { mutableStateOf("portion") }
     var hits by remember { mutableStateOf<List<FoodHit>?>(null) }
     var busy by remember { mutableStateOf<String?>(null) }
     var note by remember { mutableStateOf<String?>(null) }
@@ -207,7 +208,7 @@ fun MealDialog(st: AppState, meal: Meal, onDone: () -> Unit) {
     val ai = remember { Ai.active(ctx) }
     val shown = if (all) MACROS.map { it.key } else st.macros.tracked
     val bad = values.filter { (_, v) -> v.isNotBlank() && num(v) == null }.keys
-    val g = num(grams)
+    val n = num(amount)
     fun run(what: String, f: suspend () -> Unit) {
         busy = what; err = null; note = null
         scope.launch {
@@ -234,7 +235,16 @@ fun MealDialog(st: AppState, meal: Meal, onDone: () -> Unit) {
         Rule()
         Label("Look up (free food database)")
         PixelField(query, { query = it }, "", placeholder = name.trim().ifEmpty { "Whey protein, flat white, rice" })
-        PixelField(grams, { grams = it }, "Grams eaten", keyboard = KeyboardType.Decimal, error = if (g == null || g <= 0) "Enter grams" else null)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PixelField(amount, { amount = it }, "Amount eaten", Modifier.weight(1f), keyboard = KeyboardType.Decimal, error = if (n == null || n <= 0) "Enter an amount" else null)
+            Dropdown("Unit", unit, Food.UNITS, { u ->
+                // Keep the amount sensible when switching between a count and a weight.
+                fun weight(x: String) = x == "g" || x == "ml"
+                if (weight(u) && !weight(unit) && amount.trim() == "1") amount = "100"
+                if (!weight(u) && weight(unit) && amount.trim() == "100") amount = "1"
+                unit = u
+            }, Modifier.weight(1.4f))
+        }
         PixelButton(if (busy == "look") "Looking up…" else "Look up", {
             run("look") { hits = Food.lookup(query.trim().ifEmpty { name.trim() }) }
         }, Modifier.fillMaxWidth(), kind = Kind.SECONDARY, enabled = busy == null && (query.isNotBlank() || name.isNotBlank()))
@@ -242,15 +252,16 @@ fun MealDialog(st: AppState, meal: Meal, onDone: () -> Unit) {
         hits?.forEach { h ->
             Column(
                 Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable(role = Role.Button, onClickLabel = "Add") {
-                    val sum = sumMacros(listOf(numbers(values), Food.scale(h.per100, g ?: 100.0)))
+                    val grams = Food.gramsOf(n ?: 1.0, unit, h)
+                    val sum = sumMacros(listOf(numbers(values), Food.scale(h.per100, grams)))
                     values.clear(); values.putAll(toText(sum))
                     if (name.isBlank()) name = h.name.substringBefore(" · ")
-                    note = "Added ${fmtMacro(g ?: 100.0)} g of ${h.name}. Tap more to add ingredients."
+                    note = "Added ${fmtMacro(n ?: 1.0)} $unit${if (unit == "g") "" else " (${fmtMacro(grams)} g)"} of ${h.name}. Tap more to add ingredients."
                 }.padding(vertical = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Body(h.name)
-                Small("per 100 g: ${st.summary(h.per100)}" + (h.serving?.let { " · serving ${fmtMacro(it)} g" } ?: ""))
+                Small("per 100 g: ${st.summary(h.per100)} · portion: ${h.portion?.label ?: "100 g (none listed)"}")
             }
         }
         if (ai != null) PixelButton(if (busy == "ai") "Asking AI…" else "Fill with AI (${ai.label})", {

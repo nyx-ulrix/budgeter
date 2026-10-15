@@ -230,6 +230,24 @@ fun PixelField(
     }
 }
 
+/** Dropdown in the field style. [options] are (value, label). */
+@Composable
+fun Dropdown(label: String, value: String, options: List<Pair<String, String>>, onChange: (String) -> Unit, modifier: Modifier = Modifier) {
+    var open by remember { mutableStateOf(false) }
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (label.isNotEmpty()) Label(label)
+        Box {
+            Box(Modifier.fillMaxWidth().frame().heightIn(min = 44.dp).clickable(role = Role.DropdownList, onClickLabel = label) { open = true }
+                .padding(horizontal = 8.dp, vertical = 10.dp)) { Body("${options.firstOrNull { it.first == value }?.second ?: value}  ▾") }
+            androidx.compose.material3.DropdownMenu(open, { open = false }, Modifier.background(Px.creamLight)) {
+                options.forEach { (v, l) ->
+                    androidx.compose.material3.DropdownMenuItem({ Body(l) }, { open = false; onChange(v) })
+                }
+            }
+        }
+    }
+}
+
 /** Segmented bar of blocks, like a retro loading bar. Text label carries the meaning; colour is a cue. */
 @Composable
 fun PixelProgress(fraction: Float, modifier: Modifier = Modifier, color: Color = Px.orange, blocks: Int = 20) {

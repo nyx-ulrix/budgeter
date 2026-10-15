@@ -24,8 +24,9 @@ import kotlin.math.roundToLong
  * lifts that if it ever bites.
  */
 
-/** One database match: macros per 100 g, and a serving size in grams when the label gives one. */
-data class FoodHit(val name: String, val per100: Map<String, Double>, val serving: Double? = null)
+/** One database match: macros per 100 g, and one portion (the label's serving, or the database's first household measure). */
+data class FoodHit(val name: String, val per100: Map<String, Double>, val portion: Portion? = null)
+data class Portion(val grams: Double, val label: String)
 
 object Food {
     private const val FDC = "https://api.nal.usda.gov/fdc/v1/foods/search"
@@ -35,6 +36,27 @@ object Food {
         "fat" to listOf(1004), "fibre" to listOf(1079), "sugar" to listOf(2000, 1063), "sodium" to listOf(1093))
 
     private fun round1(v: Double) = (v * 10).roundToLong() / 10.0
+
+    /** Units for how much was eaten, portion first. ml counts as grams (close enough for drinks). */
+    val UNITS = listOf("portion" to "Portion", "g" to "Grams (g)", "ml" to "Millilitres (ml)", "oz" to "Ounces (oz)", "cup" to "Cups", "tbsp" to "Tablespoons", "tsp" to "Teaspoons")
+    private val GRAMS = mapOf("g" to 1.0, "ml" to 1.0, "oz" to 28.35, "cup" to 240.0, "tbsp" to 15.0, "tsp" to 5.0)
+
+    /** Grams in [amount] [unit] of [hit]; a portion with no size given counts as 100 g. */
+    fun gramsOf(amount: Double, unit: String, hit: FoodHit) = amount * if (unit == "portion") hit.portion?.grams ?: 100.0 else GRAMS[unit] ?: 1.0
+
+    private fun portionOf(f: JsonObject): Portion? {
+        val unit = f["servingSizeUnit"]?.jsonPrimitive?.contentOrNull?.lowercase()
+        val size = f["servingSize"]?.jsonPrimitive?.doubleOrNull
+        if ((unit == "g" || unit == "ml") && size != null && size > 0) return Portion(round1(size), "1 serving (${fmt(round1(size))} $unit)")
+        val m = f["foodMeasures"]?.jsonArray.orEmpty().map { it.jsonObject }.firstOrNull { x ->
+            (x["gramWeight"]?.jsonPrimitive?.doubleOrNull ?: 0.0) > 0 &&
+                x["disseminationText"]?.jsonPrimitive?.contentOrNull?.let { it.isNotBlank() && !it.contains("not specified", ignoreCase = true) } == true
+        } ?: return null
+        val g = round1(m["gramWeight"]!!.jsonPrimitive.doubleOrNull!!)
+        return Portion(g, "${m["disseminationText"]!!.jsonPrimitive.content} (${fmt(g)} g)")
+    }
+
+    private fun fmt(v: Double) = com.nyxulrix.budgeter.core.fmtMacro(v)
 
     /** [per100] scaled to [grams], to one decimal. */
     fun scale(per100: Map<String, Double>, grams: Double) = per100.mapValues { (_, v) -> round1(v * grams / 100) }
@@ -51,9 +73,7 @@ object Food {
         val desc = f["description"]?.jsonPrimitive?.contentOrNull.orEmpty().trim()
         val brand = (f["brandName"] ?: f["brandOwner"])?.jsonPrimitive?.contentOrNull?.ifBlank { null }
         val name = if (desc.any { it.isLowerCase() }) desc else desc.take(1) + desc.drop(1).lowercase()
-        val serving = f["servingSize"]?.jsonPrimitive?.doubleOrNull
-            ?.takeIf { it > 0 && f["servingSizeUnit"]?.jsonPrimitive?.contentOrNull?.lowercase() == "g" }?.let(::round1)
-        return FoodHit(name + (brand?.let { " · $it" } ?: ""), per100, serving)
+        return FoodHit(name + (brand?.let { " · $it" } ?: ""), per100, portionOf(f))
     }
 
     /** Searches the food database. */
