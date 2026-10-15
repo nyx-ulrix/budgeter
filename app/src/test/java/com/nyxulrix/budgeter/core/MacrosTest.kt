@@ -12,7 +12,6 @@ import com.nyxulrix.budgeter.ai.Food
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.LocalDate
 
@@ -46,20 +45,20 @@ class MacrosTest {
         assertEquals(emptyList<Meal>(), logged.withoutTxn("f").meals)   // deleting the expense removes its meal
     }
 
-    @Test fun readsUsdaResultPer100gAndScales() {
-        val f = Json.parseToJsonElement("""{"description":"WHEY PROTEIN ISOLATE","brandOwner":"Acme","servingSize":30,"servingSizeUnit":"g",
-            "foodNutrients":[{"nutrientId":1062,"unitName":"kJ","value":1500},{"nutrientId":1008,"unitName":"KCAL","value":370},
-            {"nutrientId":1003,"unitName":"G","value":80},{"nutrientId":1093,"unitName":"MG","value":500}]}""").jsonObject
-        val h = Food.readHit(f)!!
-        assertEquals("Whey protein isolate · Acme", h.name)
+    @Test fun readsAiLookupPer100gAndScales() {
+        val d = Json.parseToJsonElement("""{"foods":[
+            {"name":"Whey protein isolate","portion":"1 scoop","portion_grams":30,"per100g":{"calories":370,"protein":80,"sodium":500,"fat":"n/a"}},
+            {"name":"Rice, white, cooked","per100g":{"calories":130}},
+            {"name":"No numbers","per100g":{}}]}""").jsonObject
+        val (h, plain) = Food.readHits(d)
+        assertEquals("Whey protein isolate", h.name)
         assertEquals(mapOf("calories" to 370.0, "protein" to 80.0, "sodium" to 500.0), h.per100)
-        assertEquals(com.nyxulrix.budgeter.ai.Portion(30.0, "1 serving (30 g)"), h.portion)
+        assertEquals(com.nyxulrix.budgeter.ai.Portion(30.0, "1 scoop (30 g)"), h.portion)
         assertEquals(60.0, Food.gramsOf(2.0, "portion", h), 0.0)
         assertEquals(15.0, Food.gramsOf(1.0, "tbsp", h), 0.0)
-        val rice = Json.parseToJsonElement("""{"description":"Rice, white","foodMeasures":[{"disseminationText":"Quantity not specified","gramWeight":158},
-            {"disseminationText":"1 cup","gramWeight":186}],"foodNutrients":[{"nutrientId":1008,"unitName":"KCAL","value":130}]}""").jsonObject
-        assertEquals("1 cup (186 g)", Food.readHit(rice)!!.portion?.label)
+        assertEquals(100.0, Food.gramsOf(1.0, "portion", plain), 0.0)   // no portion given: 100 g
         assertEquals(mapOf("calories" to 111.0, "protein" to 24.0, "sodium" to 150.0), Food.scale(h.per100, 30.0))
-        assertNull(Food.readHit(Json.parseToJsonElement("""{"description":"Water","foodNutrients":[]}""").jsonObject))
+        assertEquals(2, Food.readHits(d).size)
+        assertEquals(emptyList<Any>(), Food.readHits(Json.parseToJsonElement("""{"nope":1}""").jsonObject))
     }
 }

@@ -46,6 +46,8 @@ import com.nyxulrix.budgeter.data.Foreign
 import com.nyxulrix.budgeter.data.ME
 import com.nyxulrix.budgeter.data.Txn
 import com.nyxulrix.budgeter.data.TxnItem
+import com.nyxulrix.budgeter.data.Meal
+import com.nyxulrix.budgeter.data.MEAL_CATEGORY
 import com.nyxulrix.budgeter.data.activeTrip
 import com.nyxulrix.budgeter.data.currency
 import com.nyxulrix.budgeter.data.currencyCodes
@@ -221,7 +223,10 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
         members.zip(parts).toMap()
     }.getOrElse { errors += (it.message ?: "Split doesn't add up"); emptyMap() }
 
-    fun save() {
+    var mealFor by remember { mutableStateOf<Meal?>(null) }   // "Save & add to macros": the meal to fill in after saving
+
+    /** Saves; then [then] gets the saved expense's id (by default, go back). */
+    fun save(then: (String) -> Unit = { nav.back() }) {
         if (d.tripId == DATE) {   // the shared date fund, not my budget; moving a normal expense there takes it out of my budget
             val draft = TxDraft("expense", totalHome, (d.merchant.trim().ifEmpty { d.note.trim() }.ifEmpty { "Date" }).take(100), d.date.toString())
             scope.launch {
@@ -265,7 +270,7 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
         )
         App.store.saveTxn(t)
         if (dateTx != null) scope.launch { runCatching { DateClient.deleteTx(dateTx.id) } }   // moved out of the date budget into my own
-        nav.back()
+        then(t.id)
     }
 
     Page {
@@ -394,10 +399,19 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
 
         errors.forEach { Text("! $it", style = Type.small, color = Px.red) }
         PixelButton(if (editing) "Save changes" else "Save expense", { save() }, Modifier.fillMaxWidth(), enabled = errors.isEmpty())
+        // A meal (Food, not groceries) can go straight to Macros: save, then fill in what was eaten.
+        val food = d.category == MEAL_CATEGORY || d.items.any { it.category == MEAL_CATEGORY }
+        if (d.tripId != DATE && food && st.meals.none { existing != null && it.txnId == existing.id }) PixelButton("Save & add to macros", {
+            save { id ->
+                val eaten = if (d.itemised) d.items.filter { it.category == null || it.category == MEAL_CATEGORY }.joinToString(", ") { it.name.trim() } else ""
+                mealFor = Meal(date = d.date.toString(), name = eaten.ifBlank { d.merchant.trim() }, txnId = id)
+            }
+        }, Modifier.fillMaxWidth(), kind = Kind.SECONDARY, enabled = errors.isEmpty(), glyph = Glyphs.food)
         if (existing != null) PixelButton("Delete", { App.store.deleteTxn(existing.id); nav.back() }, Modifier.fillMaxWidth(), kind = Kind.DANGER)
         if (dateTx != null) PixelButton("Delete", { scope.launch { runCatching { DateClient.deleteTx(dateTx.id) } }; nav.back() }, Modifier.fillMaxWidth(), kind = Kind.DANGER)
     }
 
+    mealFor?.let { MealDialog(st, it) { mealFor = null; nav.back() } }
     catFor?.let { item ->
         SearchPicker("Item category", st.categories.map { it to it }, { catFor = null }) { item.category = it; catFor = null }
     }

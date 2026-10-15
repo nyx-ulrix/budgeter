@@ -186,8 +186,8 @@ private fun num(s: String?) = s?.trim()?.toDoubleOrNull()?.takeIf { it >= 0 && i
 private fun numbers(x: Map<String, String>) = x.mapNotNull { (k, v) -> num(v)?.let { k to it } }.toMap()
 
 /**
- * One meal: name, day and macros. Macros can come from a preset, the free food database (each result adds on,
- * so a recipe is built ingredient by ingredient), the AI provider, or be typed in from a label.
+ * One meal: name, day and macros. Macros can come from a preset, an AI look up (each match adds on, so a recipe is
+ * built ingredient by ingredient), an AI estimate of the whole name, or be typed in from a label.
  */
 @Composable
 fun MealDialog(st: AppState, meal: Meal, onDone: () -> Unit) {
@@ -233,42 +233,44 @@ fun MealDialog(st: AppState, meal: Meal, onDone: () -> Unit) {
         }
         PixelButton(if (all) "Only what I track" else "All nutrients", { all = !all }, Modifier.fillMaxWidth(), kind = Kind.SECONDARY)
         Rule()
-        Label("Look up (free food database)")
-        PixelField(query, { query = it }, "", placeholder = name.trim().ifEmpty { "Whey protein, flat white, rice" })
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PixelField(amount, { amount = it }, "Amount eaten", Modifier.weight(1f), keyboard = KeyboardType.Decimal, error = if (n == null || n <= 0) "Enter an amount" else null)
-            Dropdown("Unit", unit, Food.UNITS, { u ->
-                // Keep the amount sensible when switching between a count and a weight.
-                fun weight(x: String) = x == "g" || x == "ml"
-                if (weight(u) && !weight(unit) && amount.trim() == "1") amount = "100"
-                if (!weight(u) && weight(unit) && amount.trim() == "100") amount = "1"
-                unit = u
-            }, Modifier.weight(1.4f))
-        }
-        PixelButton(if (busy == "look") "Looking up…" else "Look up", {
-            run("look") { hits = Food.lookup(query.trim().ifEmpty { name.trim() }) }
-        }, Modifier.fillMaxWidth(), kind = Kind.SECONDARY, enabled = busy == null && (query.isNotBlank() || name.isNotBlank()))
-        if (hits?.isEmpty() == true) Small("No matches. Try other words, or fill with AI.")
-        hits?.forEach { h ->
-            Column(
-                Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable(role = Role.Button, onClickLabel = "Add") {
-                    val grams = Food.gramsOf(n ?: 1.0, unit, h)
-                    val sum = sumMacros(listOf(numbers(values), Food.scale(h.per100, grams)))
-                    values.clear(); values.putAll(toText(sum))
-                    if (name.isBlank()) name = h.name.substringBefore(" · ")
-                    note = "Added ${fmtMacro(n ?: 1.0)} $unit${if (unit == "g") "" else " (${fmtMacro(grams)} g)"} of ${h.name}. Tap more to add ingredients."
-                }.padding(vertical = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                Body(h.name)
-                Small("per 100 g: ${st.summary(h.per100)} · portion: ${h.portion?.label ?: "100 g (none listed)"}")
+        if (ai == null) Small("Set up AI in Profile (the same one that reads receipts) to look up macros.")
+        else {
+            Label("Look up with AI (${ai.label})")
+            PixelField(query, { query = it }, "", placeholder = name.trim().ifEmpty { "Whey protein, flat white, rice" })
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PixelField(amount, { amount = it }, "Amount eaten", Modifier.weight(1f), keyboard = KeyboardType.Decimal, error = if (n == null || n <= 0) "Enter an amount" else null)
+                Dropdown("Unit", unit, Food.UNITS, { u ->
+                    // Keep the amount sensible when switching between a count and a weight.
+                    fun weight(x: String) = x == "g" || x == "ml"
+                    if (weight(u) && !weight(unit) && amount.trim() == "1") amount = "100"
+                    if (!weight(u) && weight(unit) && amount.trim() == "100") amount = "1"
+                    unit = u
+                }, Modifier.weight(1.4f))
             }
+            PixelButton(if (busy == "look") "Looking up…" else "Look up", {
+                run("look") { hits = Food.lookup(ctx, ai, query.trim().ifEmpty { name.trim() }) }
+            }, Modifier.fillMaxWidth(), kind = Kind.SECONDARY, enabled = busy == null && (query.isNotBlank() || name.isNotBlank()))
+            if (hits?.isEmpty() == true) Small("No matches. Try other words.")
+            hits?.forEach { h ->
+                Column(
+                    Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable(role = Role.Button, onClickLabel = "Add") {
+                        val grams = Food.gramsOf(n ?: 1.0, unit, h)
+                        val sum = sumMacros(listOf(numbers(values), Food.scale(h.per100, grams)))
+                        values.clear(); values.putAll(toText(sum))
+                        if (name.isBlank()) name = h.name
+                        note = "Added ${fmtMacro(n ?: 1.0)} $unit${if (unit == "g") "" else " (${fmtMacro(grams)} g)"} of ${h.name}. Tap more to add ingredients."
+                    }.padding(vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Body(h.name)
+                    Small("per 100 g: ${st.summary(h.per100)} · portion: ${h.portion?.label ?: "100 g (none given)"}")
+                }
+            }
+            PixelButton(if (busy == "ai") "Asking AI…" else "Fill all from the name", {
+                run("ai") { val m = Food.aiMacros(ctx, ai, name.trim()); values.clear(); values.putAll(toText(m)); note = "Filled by AI: check the numbers." }
+            }, Modifier.fillMaxWidth(), kind = Kind.SECONDARY, enabled = busy == null && name.isNotBlank())
+            Small("Look up adds a matching food per amount (tap several to build a recipe). Fill all estimates the whole name, e.g. \"2 eggs and toast\". Each uses one AI request.")
         }
-        if (ai != null) PixelButton(if (busy == "ai") "Asking AI…" else "Fill with AI (${ai.label})", {
-            run("ai") { val m = Food.aiMacros(ctx, ai, name.trim()); values.clear(); values.putAll(toText(m)); note = "Filled by AI: check the numbers." }
-        }, Modifier.fillMaxWidth(), kind = Kind.SECONDARY, enabled = busy == null && name.isNotBlank())
-        else Small("Set up AI in Profile to fill macros from a description.")
-        Small("The lookup is free. AI uses your provider and may cost a little; put amounts in the name (e.g. \"2 eggs and toast\").")
         note?.let { Small(it, color = Px.green) }
         err?.let { Small("! $it", color = Px.red) }
         Rule()
