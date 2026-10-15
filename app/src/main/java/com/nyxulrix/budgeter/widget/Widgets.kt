@@ -35,7 +35,11 @@ import androidx.work.WorkerParameters
 import com.nyxulrix.budgeter.App
 import com.nyxulrix.budgeter.MainActivity
 import com.nyxulrix.budgeter.core.money
+import com.nyxulrix.budgeter.core.fmtMacro
+import com.nyxulrix.budgeter.core.macro
 import com.nyxulrix.budgeter.data.currency
+import com.nyxulrix.budgeter.data.macroTarget
+import com.nyxulrix.budgeter.data.macrosOn
 import com.nyxulrix.budgeter.data.snapshot
 import kotlinx.coroutines.launch
 import java.time.Duration
@@ -97,11 +101,27 @@ class BarsWidget : GlanceAppWidget() {
     }
 }
 
+/** Macros widget: today's progress for each macro I track. Tap to open the Macros tab. */
+class MacrosWidget : GlanceAppWidget() {
+    override val sizeMode = SizeMode.Exact
+    override suspend fun provideGlance(context: Context, id: GlanceId) = provideContent {
+        val size = LocalSize.current
+        val st = App.store.value
+        val got = st.macrosOn(LocalDate.now().toString())
+        Image(
+            ImageProvider(WidgetArt.macros(context, st, size.width.value, size.height.value)),
+            "Macros today: " + st.macros.tracked.joinToString(", ") { k -> "${macro(k).label} ${fmtMacro(got[k] ?: 0.0)} of ${fmtMacro(st.macroTarget(k))} ${macro(k).unit}" },
+            GlanceModifier.fillMaxSize().clickable(open(context, "macros")), contentScale = ContentScale.FillBounds,
+        )
+    }
+}
+
 class SpendReceiver : GlanceAppWidgetReceiver() { override val glanceAppWidget = SpendWidget() }
 class BarsReceiver : GlanceAppWidgetReceiver() { override val glanceAppWidget = BarsWidget() }
+class MacrosReceiver : GlanceAppWidgetReceiver() { override val glanceAppWidget = MacrosWidget() }
 
 object Widgets {
-    suspend fun redraw(ctx: Context) { SpendWidget().updateAll(ctx); BarsWidget().updateAll(ctx) }
+    suspend fun redraw(ctx: Context) { SpendWidget().updateAll(ctx); BarsWidget().updateAll(ctx); MacrosWidget().updateAll(ctx) }
 
     /** Redraw every widget. Called after each change. */
     fun refresh(ctx: Context) { App.scope.launch { redraw(ctx) } }

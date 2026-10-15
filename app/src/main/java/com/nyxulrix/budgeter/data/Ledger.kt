@@ -190,3 +190,12 @@ fun AppState.tripSpent(tripId: String): Long = liveTxns.filter { it.tripId == tr
 fun AppState.activeTrip(date: LocalDate = LocalDate.now()): Trip? = trips.firstOrNull {
     !date.isBefore(LocalDate.parse(it.start)) && !date.isAfter(LocalDate.parse(it.end))
 }
+
+// Macros
+
+fun AppState.macroTarget(key: String): Double = macros.targets[key] ?: com.nyxulrix.budgeter.core.macro(key).default
+fun AppState.mealsOn(day: String): List<Meal> = meals.filter { it.date == day }
+fun AppState.macrosOn(day: String): Map<String, Double> = com.nyxulrix.budgeter.core.sumMacros(mealsOn(day).map { it.macros })
+/** Food expenses (meals out, not groceries) on [day] that don't have a meal logged yet. */
+fun AppState.unloggedFood(day: String): List<Txn> =
+    liveTxns.filter { it.date == day && it.category == MEAL_CATEGORY && meals.none { m -> m.txnId == it.id } }

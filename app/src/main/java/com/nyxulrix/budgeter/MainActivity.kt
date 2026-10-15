@@ -52,6 +52,7 @@ class MainActivity : ComponentActivity() {
             "scan" -> { nav.reset(Tab.HOME); nav.pendingScan = true }
             "planned" -> nav.reset(Tab.BUDGET)
             "home" -> nav.reset(Tab.HOME)
+            "macros" -> nav.reset(Tab.MACROS)
         }
     }
 

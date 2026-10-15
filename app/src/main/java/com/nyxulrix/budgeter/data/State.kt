@@ -26,6 +26,9 @@ data class AppState(
     // Categories spread over the month (groceries, bills): they lower the month's money, and so every remaining
     // day's budget, but don't use up today's budget.
     val monthlyCategories: Set<String> = setOf("Groceries", "Bills"),
+    val meals: List<Meal> = emptyList(),
+    val macros: MacroGoals = MacroGoals(),
+    val presets: List<FoodPreset> = emptyList(),
     val sync: SyncInfo = SyncInfo(),
     val stamps: Map<String, Long> = emptyMap(),       // record key → when it last changed, for two-way sync (Records.kt)
 )
@@ -123,6 +126,33 @@ data class Txn(
     /** What this transaction takes from my budget. */
     val budgetImpact: Long get() = (myShare - fromReserve).coerceAtLeast(0)
 }
+
+/**
+ * Something I ate, with its macros (calories, protein... keyed as in core/Macros.kt). [txnId] links it to the
+ * Food expense it came from; free food has none. A Food expense with no meal yet waits in the Macros tab.
+ */
+@Serializable
+data class Meal(
+    val id: String = newId(),
+    val date: String,
+    val name: String,
+    val txnId: String? = null,
+    val macros: Map<String, Double> = emptyMap(),
+)
+
+/** Something I eat often (protein powder, morning coffee, my own recipe), to add in one tap. */
+@Serializable
+data class FoodPreset(val id: String = newId(), val name: String, val macros: Map<String, Double> = emptyMap())
+
+/** Which macros I track (shown on the Macros tab, Home and the widget) and my daily targets (missing = default). */
+@Serializable
+data class MacroGoals(
+    val tracked: List<String> = com.nyxulrix.budgeter.core.DEFAULT_TRACKED,
+    val targets: Map<String, Double> = emptyMap(),
+)
+
+/** Category whose expenses are meals (groceries aren't). */
+const val MEAL_CATEGORY = "Food"
 
 @Serializable
 enum class PlannedStatus { OPEN, BOUGHT }

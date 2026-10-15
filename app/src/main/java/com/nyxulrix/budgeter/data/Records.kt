@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
  * Two-way sync between the Android and web apps, through a hidden "_sync" tab in the shared Google Sheet.
  * The state is split into records, each with the time it last changed ("stamp"). On each sync both sides keep
  * whichever copy of a record is newer. A deleted record keeps its stamp with no data, so the delete wins too.
- * Keys: setup, categories, plan:<period>, txn:<id>, planned:<id>, trip:<id>. The web app (budgeter-web,
+ * Keys: setup, categories, macros, plan:<period>, txn:<id>, planned:<id>, trip:<id>, meal:<id>, preset:<id>. The web app (budgeter-web,
  * src/core/records.ts) uses exactly the same keys and JSON.
  * ponytail: last writer wins per record by wall clock; two devices editing the same record within one sync
  * interval keep only the later edit.
@@ -26,6 +26,9 @@ fun AppState.recordObjects(): Map<String, Any> = buildMap {
     txns.forEach { put("txn:${it.id}", it) }
     planned.forEach { put("planned:${it.id}", it) }
     trips.forEach { put("trip:${it.id}", it) }
+    put("macros", macros)
+    meals.forEach { put("meal:${it.id}", it) }
+    presets.forEach { put("preset:${it.id}", it) }
 }
 
 fun encodeRecord(o: Any): String = when (o) {
@@ -35,6 +38,9 @@ fun encodeRecord(o: Any): String = when (o) {
     is Txn -> json.encodeToString(Txn.serializer(), o)
     is Planned -> json.encodeToString(Planned.serializer(), o)
     is Trip -> json.encodeToString(Trip.serializer(), o)
+    is MacroGoals -> json.encodeToString(MacroGoals.serializer(), o)
+    is Meal -> json.encodeToString(Meal.serializer(), o)
+    is FoodPreset -> json.encodeToString(FoodPreset.serializer(), o)
     else -> error("Not a record: $o")
 }
 
@@ -58,6 +64,9 @@ fun AppState.withRecord(key: String, json: String?): AppState {
         "txn" -> copy(txns = txns.put({ it.id }, json?.let { com.nyxulrix.budgeter.data.json.decodeFromString(Txn.serializer(), it) }))
         "planned" -> copy(planned = planned.put({ it.id }, json?.let { com.nyxulrix.budgeter.data.json.decodeFromString(Planned.serializer(), it) }))
         "trip" -> copy(trips = trips.put({ it.id }, json?.let { com.nyxulrix.budgeter.data.json.decodeFromString(Trip.serializer(), it) }))
+        "macros" -> json?.let { copy(macros = com.nyxulrix.budgeter.data.json.decodeFromString(MacroGoals.serializer(), it)) } ?: this
+        "meal" -> copy(meals = meals.put({ it.id }, json?.let { com.nyxulrix.budgeter.data.json.decodeFromString(Meal.serializer(), it) }))
+        "preset" -> copy(presets = presets.put({ it.id }, json?.let { com.nyxulrix.budgeter.data.json.decodeFromString(FoodPreset.serializer(), it) }))
         else -> this
     }
 }

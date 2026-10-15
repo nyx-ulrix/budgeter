@@ -116,7 +116,10 @@ fun HomeScreen(st: AppState) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PixelButton("Expense", { nav.go(Screen.Expense()) }, Modifier.weight(1f), glyph = Glyphs.plus)
             PixelButton("Scan", { scanner.camera() }, Modifier.weight(1f), glyph = Glyphs.camera)
+            AddFoodButton(st, Modifier.weight(1f))
         }
+
+        MacrosCard(st)
 
         // Secondary, folded.
         st.activeTrip(now)?.let { trip ->

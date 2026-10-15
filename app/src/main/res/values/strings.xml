@@ -2,4 +2,5 @@
 <resources>
     <string name="widget_spend">Left to spend today, scan a receipt or add an expense</string>
     <string name="widget_bars">Today and this month as two bars</string>
+    <string name="widget_macros">Macros today against your targets</string>
 </resources>

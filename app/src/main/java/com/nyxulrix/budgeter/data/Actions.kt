@@ -48,9 +48,18 @@ fun AppState.withoutTxn(id: String): AppState {
         Planned(id = pid, name = t.merchant, price = t.total, targetMonth = periodOf(LocalDate.parse(t.date)).key) else null
     return copy(
         txns = txns.mapNotNull { x -> if (x.id != id) x else tombstone(x) },
+        meals = meals.filterNot { it.txnId == id },   // the meal logged for it goes too
         planned = planned.map { if (pid != null && it.id == pid) it.copy(status = PlannedStatus.OPEN) else it } + listOfNotNull(back),
     )
 }
+
+// Macros
+
+fun Store.saveMeal(m: Meal) = update { st -> st.copy(meals = st.meals.filterNot { it.id == m.id } + m) }
+fun Store.savePreset(p: FoodPreset) = update { st -> st.copy(presets = st.presets.filterNot { it.id == p.id } + p) }
+fun Store.deletePreset(id: String) = update { st -> st.copy(presets = st.presets.filterNot { it.id == id }) }
+fun Store.deleteMeal(id: String) = update { st -> st.copy(meals = st.meals.filterNot { it.id == id }) }
+fun Store.editMacros(f: (MacroGoals) -> MacroGoals) = update { it.copy(macros = f(it.macros)) }
 
 // Planned purchases
 

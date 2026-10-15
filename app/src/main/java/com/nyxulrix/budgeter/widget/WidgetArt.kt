@@ -12,6 +12,11 @@ import com.nyxulrix.budgeter.core.money
 import com.nyxulrix.budgeter.data.AppState
 import com.nyxulrix.budgeter.data.currency
 import com.nyxulrix.budgeter.data.snapshot
+import com.nyxulrix.budgeter.core.fmtMacro
+import com.nyxulrix.budgeter.core.macro
+import com.nyxulrix.budgeter.data.macroTarget
+import com.nyxulrix.budgeter.data.macrosOn
+import java.time.LocalDate
 import com.nyxulrix.budgeter.ui.Glyphs
 import com.nyxulrix.budgeter.ui.alertArgb
 import com.nyxulrix.budgeter.ui.monthBlocks
@@ -151,6 +156,31 @@ object WidgetArt {
         }, a.r, y, a.body, 15f, if (snap.over) RED else MUTED, right = true)
         y += a.px(4f)
         a.blocks(y, y + barH, st.monthBlocks(snap), alert ?: BROWN)
+        return a.bmp
+    }
+
+    /** Macros widget: a title, then one labelled block bar per tracked macro, sharing the widget's height. */
+    fun macros(ctx: Context, st: AppState, wDp: Float, hDp: Float): Bitmap {
+        val a = Art(ctx, wDp, hDp)
+        val got = st.macrosOn(LocalDate.now().toString())
+        val keys = st.macros.tracked
+        val top = a.px(FRAME + 6f) + a.px(12f)
+        a.text("MACROS TODAY", a.l, top, a.label, 10f, BROWN)
+        if (keys.isEmpty()) { a.text("Pick macros in the app", a.l, top + a.px(22f), a.body, 15f, MUTED); return a.bmp }
+        val section = (a.bottom - a.px(FRAME + 4f) - top) / keys.size
+        val barH = (section - a.px(22f)).coerceIn(a.px(8f), a.px(24f))
+        keys.forEachIndexed { i, k ->
+            val m = macro(k)
+            val v = got[k] ?: 0.0
+            val t = st.macroTarget(k)
+            val over = !m.more && v > t
+            val color = when { m.more && v >= t -> GREEN; over -> RED; else -> ORANGE }
+            var y = top + section * i + (section - barH - a.px(14f)) / 2 + a.px(12f)
+            a.text(m.label.uppercase(), a.l, y, a.label, 9f, BROWN)
+            a.text("${fmtMacro(v)} / ${fmtMacro(t)} ${m.unit}", a.r, y, a.body, 15f, if (over) RED else MUTED, right = true)
+            y += a.px(4f)
+            a.blocks(y, y + barH, if (t > 0) (v / t).toFloat().coerceIn(0f, 1f) else if (v > 0) 1f else 0f, color)
+        }
         return a.bmp
     }
 }
