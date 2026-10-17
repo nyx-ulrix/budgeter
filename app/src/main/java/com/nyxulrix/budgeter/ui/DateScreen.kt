@@ -181,27 +181,34 @@ private fun SignIn() {
     }
 }
 
+/**
+ * The one login: signs in to the date budget with the Google account Budgeter uses. [quiet] only picks an account
+ * that has already signed in here (no UI, no errors); otherwise the account picker shows. Needs an Activity [ctx].
+ * Returns an error message to show, or null.
+ */
+suspend fun dateGoogleSignIn(ctx: android.content.Context, quiet: Boolean): String? {
+    if (!DateClient.configured || DateClient.state.value.phase != Phase.SignedOut) return null
+    return try {
+        val option = GetGoogleIdOption.Builder().setServerClientId(GOOGLE_CLIENT_ID)
+            .setFilterByAuthorizedAccounts(quiet).setAutoSelectEnabled(quiet).build()
+        val res = CredentialManager.create(ctx).getCredential(ctx, GetCredentialRequest.Builder().addCredentialOption(option).build())
+        DateClient.signIn(GoogleIdTokenCredential.createFrom(res.credential.data).idToken)
+        null
+    } catch (_: GetCredentialCancellationException) {
+        null   // closed the account picker: nothing to say
+    } catch (e: Exception) {
+        if (e is kotlinx.coroutines.CancellationException) throw e
+        if (quiet) null else e.message ?: "Google sign-in failed."
+    }
+}
+
 @Composable
 private fun SignInButton() {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var err by remember { mutableStateOf<String?>(null) }
-    Small("Sign in with the Google account you use for DateBudget.")
-    PixelButton("Sign in with Google", {
-        err = null
-        scope.launch {
-            try {
-                val option = GetGoogleIdOption.Builder().setServerClientId(GOOGLE_CLIENT_ID)
-                    .setFilterByAuthorizedAccounts(false).setAutoSelectEnabled(false).build()
-                val res = CredentialManager.create(ctx).getCredential(ctx, GetCredentialRequest.Builder().addCredentialOption(option).build())
-                DateClient.signIn(GoogleIdTokenCredential.createFrom(res.credential.data).idToken)
-            } catch (_: GetCredentialCancellationException) {
-                // Closed the account picker: nothing to say.
-            } catch (e: Exception) {
-                if (e !is kotlinx.coroutines.CancellationException) err = e.message ?: "Google sign-in failed."
-            }
-        }
-    }, Modifier.fillMaxWidth())
+    Small("This uses your Budgeter Google account: connecting Google sync signs you in here too. Or sign in just for this:")
+    PixelButton("Sign in with Google", { err = null; scope.launch { err = dateGoogleSignIn(ctx, quiet = false) } }, Modifier.fillMaxWidth())
     err?.let { Small("! $it", color = Px.red) }
 }
 

@@ -1,5 +1,6 @@
 package com.nyxulrix.budgeter.ui
 
+import com.nyxulrix.budgeter.core.receiptDate
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -102,7 +103,7 @@ class Draft(home: String) {
         fun p(v: Long) = if (v == 0L) "" else plain(v, paidCur)
         merchant = r.merchant.ifBlank { merchant }
         r.category?.let { category = it }
-        r.date?.let { runCatching { date = LocalDate.parse(it) } }
+        r.date?.let { runCatching { date = receiptDate(LocalDate.parse(it), LocalDate.now()) } }
         items.clear(); items += r.items.map { ItemDraft(it.name, plain(it.price, paidCur), it.qty) }
         itemised = r.items.isNotEmpty()
         discount = p(r.discount); service = p(r.serviceCharge); tax = p(r.tax); taxIncluded = r.taxIncluded

@@ -38,16 +38,17 @@ import java.security.SecureRandom
 import java.time.LocalDate
 
 /*
- * The shared date budget lives in DateBudget's Firebase project (github.com/nyx-ulrix/DateBudget), so a partner on the
- * DateBudget site and Budgeter see the same budget. Sign-in: a Google ID token for Budgeter's own web client (safelisted
- * in DateBudget's Firebase Auth) is exchanged for a Firebase session over REST. Data: Firestore REST, refreshed every
- * few seconds while the screen is open instead of a live listener (no SDK). Port of the web app's src/date/client.ts.
- * Layout (see DateBudget's firestore.rules): budgets/{code} {members, names, plan}; budgets/{code}/tx/{id}.
+ * The shared date budget lives in Budgeter's own Firebase project (budgeter-510810), which the DateBudget site also
+ * uses, so a partner on either sees the same budget. One login: the Google account Budgeter uses (Sign in with Google
+ * for Budgeter's web client, picked silently once it has been used) is exchanged for a Firebase session over REST.
+ * Data: Firestore REST, refreshed every few seconds while a screen shows it (no SDK). Same requests as the web app's
+ * src/date/client.ts. Layout (DateBudget's firestore.rules): budgets/{code} {members, names, plan}; budgets/{code}/tx/{id}.
  */
-// DateBudget's Android-restricted API key, from keystore.properties (dateBudgetApiKey) or DATEBUDGET_API_KEY at build time.
-private val KEY = BuildConfig.DATEBUDGET_API_KEY
-private const val DOCS = "https://firestore.googleapis.com/v1/projects/datebudget/databases/(default)/documents"
-private const val SESSION = "datebudget-session"                   // refresh token, encrypted (Secrets)
+// Budgeter's Android-restricted Firebase key, from keystore.properties (firebaseApiKey) or FIREBASE_API_KEY at build time.
+private val KEY = BuildConfig.FIREBASE_API_KEY
+private const val PROJECT = "budgeter-510810"
+private const val DOCS = "https://firestore.googleapis.com/v1/projects/$PROJECT/databases/(default)/documents"
+private const val SESSION = "date-session-budgeter"   // refresh token, encrypted (Secrets); new name, as DateBudget-project sessions don't carry over
 
 data class Budget(val code: String, val members: List<String>, val names: Map<String, String>, val plan: List<Step>)
 
@@ -197,9 +198,11 @@ object DateClient {
             val s = Json.parseToJsonElement(saved).jsonObject
             session = Session("", 0, s["refresh"].str()!!, s["uid"].str()!!, s["name"].str().orEmpty())
             set { copy(phase = Phase.Loading) }
+            token()
             refresh()
         } catch (e: Exception) {
             if (e is CancellationException) throw e
+            session = null   // the saved session no longer works: sign in again (quietly, with Budgeter's Google account)
             set { copy(phase = Phase.SignedOut) }
         }
     }
@@ -211,9 +214,13 @@ object DateClient {
         return r.body ?: JsonObject(emptyMap())
     }
 
-    /** Reloads the budget and its entries. */
+    private val latest = java.util.concurrent.atomic.AtomicInteger()   // only the newest reload may write (see refresh)
+
+    /** Reloads the budget and its entries. An older reload finishing late would drop a just-saved entry, so it's ignored. */
     suspend fun refresh() = detached {
         val s = session ?: return@detached
+        val mine = latest.incrementAndGet()
+        fun set(f: DateState.() -> DateState) { if (mine == latest.get()) _state.update(f) }
         try {
             val q = api("POST", ":runQuery", Json.parseToJsonElement("""{"structuredQuery":{"from":[{"collectionId":"budgets"}],
                 "where":{"fieldFilter":{"field":{"fieldPath":"members"},"op":"ARRAY_CONTAINS","value":{"stringValue":${JsonPrimitive(s.uid)}}}},"limit":1}}"""))
@@ -284,7 +291,7 @@ object DateClient {
             api("POST", ":commit", buildJsonObject {
                 put("writes", JsonArray(listOf(buildJsonObject {
                     put("update", buildJsonObject {
-                        put("name", "projects/datebudget/databases/(default)/documents/budgets/$c")
+                        put("name", "projects/$PROJECT/databases/(default)/documents/budgets/$c")
                         put("fields", buildJsonObject { put("names", buildJsonObject { put("mapValue", buildJsonObject { put("fields", buildJsonObject { put(s.uid, sv(s.name)) }) }) }) })
                     })
                     put("updateMask", buildJsonObject { put("fieldPaths", JsonArray(listOf(JsonPrimitive("names.`${s.uid}`")))) })
@@ -318,8 +325,18 @@ object DateClient {
 
     suspend fun addTx(d: TxDraft) = detached {
         val s = me()
-        api("POST", "/budgets/${code()}/tx", buildJsonObject { put("fields", txFields(d, s.uid)) })
+        val doc = api("POST", "/budgets/${code()}/tx", buildJsonObject { put("fields", txFields(d, s.uid)) })
+        val id = (doc as? JsonObject)?.get("name").str()?.substringAfterLast('/') ?: throw Exception("The date budget didn't confirm the save. Try again.")
+        show(Tx(id, d.kind, d.amount, d.note, d.date, s.uid))   // in the list straight away, whatever the reload does
         refresh()
+    }
+
+    /** Puts [t] into the loaded entries now (the next reload brings the stored copy). */
+    private fun show(t: Tx) = _state.update { st ->
+        val txs = (listOf(t) + st.txs.filterNot { it.id == t.id }).sortedByDescending { it.date }
+        val all = (listOf(t) + st.all.filterNot { it.id == t.id }).sortedByDescending { it.date }
+        val tt = totals(all)
+        st.copy(txs = txs, all = all, left = tt.left, topped = tt.topped, spent = tt.spent)
     }
 
     suspend fun updateTx(id: String, d: TxDraft) = detached {

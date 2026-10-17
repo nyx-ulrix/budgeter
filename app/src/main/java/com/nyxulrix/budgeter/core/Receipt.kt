@@ -38,3 +38,16 @@ data class ParsedReceipt(
         return items.mapIndexed { i, item -> item.price + shares[i] }
     }
 }
+
+/**
+ * The date to use for a scanned receipt. Receipts are scanned soon after paying, and a misread year (2023 for 2026)
+ * would file the expense in a long-gone month, so a date more than [days] days old or in the future gets this year
+ * (last year if that's still ahead); if it's still out of range, today. Same as the web's receiptDate.
+ */
+fun receiptDate(read: java.time.LocalDate, today: java.time.LocalDate, days: Long = 60): java.time.LocalDate {
+    fun ok(d: java.time.LocalDate) = !d.isAfter(today) && !d.isBefore(today.minusDays(days))
+    if (ok(read)) return read
+    val thisYear = runCatching { read.withYear(today.year) }.getOrNull() ?: return today   // 29 Feb in a non-leap year
+    val fixed = if (thisYear.isAfter(today)) runCatching { thisYear.minusYears(1) }.getOrDefault(today) else thisYear
+    return if (ok(fixed)) fixed else today
+}

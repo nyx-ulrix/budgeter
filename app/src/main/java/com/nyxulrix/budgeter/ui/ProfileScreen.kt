@@ -238,10 +238,13 @@ private fun ProviderForm(presetId: String, existing: Provider?, onSaved: () -> U
 fun SyncScreen(st: AppState) {
     val ctx = LocalContext.current
     val sync = st.sync
+    val scope = rememberCoroutineScope()
+    /** Sync is on; the same Google account also signs in to the shared date budget (the one login). */
+    fun connected(email: String?) { enableSync(email); scope.launch { dateGoogleSignIn(ctx, quiet = false) } }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { res ->
         if (res.resultCode == Activity.RESULT_OK) runCatching {
             val r = Identity.getAuthorizationClient(ctx).getAuthorizationResultFromIntent(res.data)
-            enableSync(r.toGoogleSignInAccount()?.email)
+            connected(r.toGoogleSignInAccount()?.email)
         }.onFailure { Toast.makeText(ctx, "Google sign-in failed: ${it.message}", Toast.LENGTH_LONG).show() }
     }
     fun connect() {
@@ -249,7 +252,7 @@ fun SyncScreen(st: AppState) {
             .addOnSuccessListener { r ->
                 val pi = r.pendingIntent
                 if (r.hasResolution() && pi != null) launcher.launch(IntentSenderRequest.Builder(pi.intentSender).build())
-                else enableSync(r.toGoogleSignInAccount()?.email)
+                else connected(r.toGoogleSignInAccount()?.email)
             }
             .addOnFailureListener {
                 Toast.makeText(ctx, "Google sign-in isn't available in this build yet (${it.message}). See docs/google-setup.md.", Toast.LENGTH_LONG).show()

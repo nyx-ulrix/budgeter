@@ -61,4 +61,12 @@ class MacrosTest {
         assertEquals(2, Food.readHits(d).size)
         assertEquals(emptyList<Any>(), Food.readHits(Json.parseToJsonElement("""{"nope":1}""").jsonObject))
     }
+
+    @Test fun scannedReceiptYearIsKeptRecent() {
+        val today = LocalDate.parse("2026-10-17")
+        assertEquals(LocalDate.parse("2026-10-16"), receiptDate(LocalDate.parse("2023-10-16"), today))   // misread year
+        assertEquals(LocalDate.parse("2026-10-16"), receiptDate(LocalDate.parse("2026-10-16"), today))   // fine as is
+        assertEquals(LocalDate.parse("2025-12-30"), receiptDate(LocalDate.parse("2026-12-30"), LocalDate.parse("2026-01-05")))   // future: last year
+        assertEquals(today, receiptDate(LocalDate.parse("2026-03-01"), today))                            // just old: today
+    }
 }

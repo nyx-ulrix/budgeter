@@ -30,7 +30,7 @@ android {
         versionName = appVersion
         // Where the app looks for new versions (GitHub "owner/repo" with public releases).
         // DateBudget's Android-restricted Firebase key for the shared date budget (keystore.properties or GitHub secret).
-        buildConfigField("String", "DATEBUDGET_API_KEY", "\"${key("dateBudgetApiKey", "DATEBUDGET_API_KEY") ?: ""}\"")
+        buildConfigField("String", "FIREBASE_API_KEY", "\"${key("firebaseApiKey", "FIREBASE_API_KEY") ?: ""}\"")
         buildConfigField("String", "UPDATE_REPO", "\"${findProperty("updateRepo") ?: "nyx-ulrix/budgeter"}\"")
     }
     signingConfigs {

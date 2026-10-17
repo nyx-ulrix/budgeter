@@ -1,5 +1,6 @@
 package com.nyxulrix.budgeter
 
+import androidx.lifecycle.lifecycleScope
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -24,8 +25,12 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         handle(intent)
         App.scope.launch { Updater.check(applicationContext) }
-        // The shared date budget, if signed in; once per process (a rotated activity keeps what is loaded).
-        if (DateClient.state.value.phase == Phase.SignedOut) App.scope.launch { DateClient.resume() }
+        // The shared date budget, once per process (a rotated activity keeps what is loaded): the saved session, else a
+        // quiet sign-in with the Google account already used here (the one login; no UI when there isn't one).
+        if (DateClient.state.value.phase == Phase.SignedOut) lifecycleScope.launch {
+            DateClient.resume()
+            com.nyxulrix.budgeter.ui.dateGoogleSignIn(this@MainActivity, quiet = true)
+        }
         setContent { BudgeterTheme { Root(nav) } }
     }
 
