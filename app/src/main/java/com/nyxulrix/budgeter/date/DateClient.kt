@@ -81,12 +81,12 @@ object DateClient {
     val configured get() = KEY.isNotEmpty()
 
     // --- Firestore value conversion ---
-    private fun enc(v: JsonElement): JsonObject = buildJsonObject {
+    internal fun enc(v: JsonElement): JsonObject = buildJsonObject {
         when {
             v is JsonNull -> put("nullValue", JsonNull)
             v is JsonPrimitive && v.isString -> put("stringValue", v.content)
             v is JsonPrimitive && v.booleanOrNull != null -> put("booleanValue", v.booleanOrNull)
-            v is JsonPrimitive -> v.longOrNull?.let { put("integerValue", it.toString()) } ?: put("doubleValue", v.doubleOrNull)
+            v is JsonPrimitive -> { val n = v.longOrNull; if (n != null) put("integerValue", n.toString()) else put("doubleValue", v.doubleOrNull) }
             v is JsonArray -> put("arrayValue", buildJsonObject { put("values", JsonArray(v.map(::enc))) })
             else -> put("mapValue", buildJsonObject { put("fields", fields(v.jsonObject)) })
         }
