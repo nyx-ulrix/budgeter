@@ -7,7 +7,10 @@ local.properties
 captures/
 *.keystore
 *.jks
-graphify-out/
+graphify-out/cache/
+graphify-out/20*/
 keystore.properties
 .firebase/
 .claude/
+graphify-out/.graphify_python
+graphify-out/.graphify_root
