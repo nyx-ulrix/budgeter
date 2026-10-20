@@ -157,7 +157,7 @@ sequenceDiagram
     Note over App: expense with Count toward → Date budget
     App->>FS: POST tx {kind, amount, note, date, by}
     FS-->>App: created document
-    App->>App: show it at once; only the newest reload may replace the list
+    App->>App: show it at once, and only the newest reload may replace the list
     Note over App,FS: My monthly share is a fixed cost in my own budget,<br/>so date spending never comes out of it twice.
 ```
 
