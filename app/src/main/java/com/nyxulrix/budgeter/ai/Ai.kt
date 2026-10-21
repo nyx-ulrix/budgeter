@@ -165,6 +165,8 @@ Rules:
         val key = Secrets.get(ctx, "key_${p.id}") ?: throw Exception("${p.label} has no key saved. Add it in Profile → AI.")
         val body = buildJsonObject {
             put("model", p.model)
+            // Gemini thinks at length by default, which made a receipt take many seconds; reading one needs little.
+            if (p.preset == "gemini") put("reasoning_effort", "low")
             put("messages", buildJsonArray {
                 add(buildJsonObject { put("role", "system"); put("content", system) })
                 add(buildJsonObject {

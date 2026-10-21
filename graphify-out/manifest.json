@@ -1,7 +1,7 @@
 {
   "app/build.gradle.kts": {
-    "mtime": 1792224268.7857924,
-    "ast_hash": "d96cd24dd12b217267686d396bc7653e",
+    "mtime": 1792604828.3353739,
+    "ast_hash": "afbe49c19db4ca8a11a73d8ef1a201d9",
     "semantic_hash": ""
   },
   "app/src/main/java/com/nyxulrix/budgeter/App.kt": {
@@ -15,8 +15,8 @@
     "semantic_hash": ""
   },
   "app/src/main/java/com/nyxulrix/budgeter/ai/Ai.kt": {
-    "mtime": 1791854180.5994768,
-    "ast_hash": "61b5db02992dfcee207298200c99744c",
+    "mtime": 1792604171.8894136,
+    "ast_hash": "019e8266558c89a6052029f4e5a3ef2b",
     "semantic_hash": ""
   },
   "app/src/main/java/com/nyxulrix/budgeter/ai/OpenRouterLogin.kt": {
@@ -185,8 +185,8 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1792469371.8395748,
-    "ast_hash": "2747c1b8d404c8d3849ed6f2cc6864d5",
+    "mtime": 1792469430.2654715,
+    "ast_hash": "3d6a7682aec3318e0e83a7589b46be8a",
     "semantic_hash": ""
   },
   "docs/GRAPHICS.md": {
