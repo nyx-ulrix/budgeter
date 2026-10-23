@@ -184,4 +184,17 @@ class LedgerTest {
         val noBudget = AppState(setup, plans = mapOf("2026-10" to Plan(300_000, savingsTarget = 50_000)))
         assertEquals(250_000L, noBudget.spendable("2026-10"))                 // everything available − target
     }
+
+    @Test fun boughtItemEditedBelowItsReservationFreesTheRest() {
+        val p = Planned(id = "p", name = "Shoes", price = 50_000, targetMonth = "2026-10")
+        val st = AppState(setup, plans = mapOf("2026-10" to Plan(300_000)), planned = listOf(p)).withReserved(p, 50_000, oct5)
+        val bought = st.boughtNow(p, "Shopping", oct5)
+        assertEquals(250_000L, bought.spendable("2026-10"))
+        val t = bought.txns.last()
+        val edited = bought.withTxn(t.copy(total = 30_000), 1)
+        assertEquals(30_000L, edited.txns.first { it.id == t.id }.fromReserve)
+        assertEquals(30_000L, edited.reserved("p"))
+        assertEquals(270_000L, edited.spendable("2026-10"))
+        assertEquals(50_000L, bought.withTxn(t.copy(total = 60_000), 1).txns.first { it.id == t.id }.fromReserve)   // dearer: unchanged
+    }
 }

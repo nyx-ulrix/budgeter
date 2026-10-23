@@ -22,9 +22,18 @@ fun Store.removeLine(key: String, id: String) = update { st ->
     st.copy(plans = st.plans + (key to st.planFor(key).let { p -> p.copy(lines = p.lines.filterNot { it.id == id && !st.isSpentReserve(it) }) }))
 }
 
-fun Store.saveTxn(t: Txn) = update { st ->
-    val stamped = t.copy(updatedAt = System.currentTimeMillis())
-    st.copy(txns = if (st.txns.any { it.id == t.id }) st.txns.map { if (it.id == t.id) stamped else it } else st.txns + stamped)
+fun Store.saveTxn(t: Txn) = update { it.withTxn(t, System.currentTimeMillis()) }
+
+/**
+ * Saves [t]. A "Buy now" expense edited below what was reserved for it frees the extra reservation
+ * (newest first), so that money isn't left neither spent nor free.
+ */
+fun AppState.withTxn(t: Txn, now: Long): AppState {
+    val pid = t.plannedId
+    val excess = t.fromReserve - t.myShare.coerceAtLeast(0)
+    val st = if (pid != null && excess > 0) withReserved(Planned(id = pid, name = t.merchant, price = 0, targetMonth = ""), reserved(pid) - excess, LocalDate.now()) else this
+    val stamped = (if (excess > 0) t.copy(fromReserve = t.fromReserve - excess) else t).copy(updatedAt = now)
+    return st.copy(txns = if (st.txns.any { it.id == t.id }) st.txns.map { if (it.id == t.id) stamped else it } else st.txns + stamped)
 }
 
 /** Removes [t]: dropped outright if it never reached Sheets and sync is off, otherwise a tombstone sync can carry. */

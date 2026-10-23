@@ -134,3 +134,9 @@ fun totals(txs: List<Tx>): Totals {
     val topped = sum("topup"); val spent = sum("expense")
     return Totals(topped, spent, topped - spent)
 }
+
+/**
+ * How far an expense of [amount] (replacing one of [old] when editing) takes the fund below zero, given [left] now:
+ * only the part this expense overdraws, never what was already short. The person who paid covers it from their budget.
+ */
+fun overdrawn(left: Long, amount: Long, old: Long = 0): Long = minOf(amount, amount - old - left).coerceAtLeast(0)

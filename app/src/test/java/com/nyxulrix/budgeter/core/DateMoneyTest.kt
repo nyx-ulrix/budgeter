@@ -67,4 +67,16 @@ class DateMoneyTest {
         assertEquals(listOf(Step("2026-03-02", 700, Every.FORTNIGHT)),
             steps(Json.parseToJsonElement("""[{"from":"2026-03-02","amount":700.0,"every":"fortnight"},{"from":"2026-03-02","amount":1,"every":"month"}]""")))
     }
+
+    @Test fun overspendCoversOnlyWhatThisExpenseOverdraws() {
+        assertEquals(7_000L, overdrawn(5_000, 12_000))          // 50 left, 120 dinner: 70 short
+        assertEquals(0L, overdrawn(20_000, 5_000))              // fits
+        assertEquals(1_000L, overdrawn(-7_000, 1_000))          // already short: only this one
+        assertEquals(7_000L, overdrawn(-7_000, 10_000, 10_000)) // re-saving the expense that went 70 over
+        assertEquals(0L, overdrawn(0, 10_000, 10_000))          // already covered: nothing twice
+    }
+
+    @Test fun currencyDigitsMatchTheWebTable() {
+        assertEquals(listOf(0, 2, 3, 4, 2, 0), listOf("JPY", "SGD", "KWD", "UYW", "XYZ", "XAU").map(::digits))
+    }
 }

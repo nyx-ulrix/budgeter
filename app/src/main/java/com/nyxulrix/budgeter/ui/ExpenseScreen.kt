@@ -39,6 +39,7 @@ import com.nyxulrix.budgeter.core.allocate
 import com.nyxulrix.budgeter.core.convert
 import com.nyxulrix.budgeter.core.itemShares
 import com.nyxulrix.budgeter.core.money
+import com.nyxulrix.budgeter.core.overdrawn
 import com.nyxulrix.budgeter.core.parseMoney
 import com.nyxulrix.budgeter.core.plain
 import com.nyxulrix.budgeter.core.split
@@ -126,7 +127,7 @@ private fun draftFrom(st: AppState, s: Screen.Expense, dateTx: DateTx?): Draft {
         t != null -> {
             val cur = t.foreign?.currency ?: home
             val paid = t.foreign?.amount ?: t.total
-            d.paidCur = cur; d.rate = (t.foreign?.rate ?: 1.0).toString()
+            d.paidCur = cur; d.rate = BigDecimal.valueOf(t.foreign?.rate ?: 1.0).toPlainString()
             d.itemised = t.items.isNotEmpty()
             d.amount = plain(if (t.items.isEmpty()) paid else paid - t.serviceCharge - (if (t.taxIncluded) 0 else t.tax) + t.discount, cur)
             d.tax = if (t.tax != 0L) plain(t.tax, cur) else ""
@@ -177,7 +178,7 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
     // Fetch a rate when paying in another currency; the user can overwrite it.
     LaunchedEffect(cur) {
         if (cur == home) d.rate = "1"
-        else if (existing?.foreign?.currency != cur) { d.rate = ""; Rates.rate(cur, home)?.let { r -> if (d.rate.isBlank()) d.rate = r.toString() } }
+        else if (existing?.foreign?.currency != cur) { d.rate = ""; Rates.rate(cur, home)?.let { r -> if (d.rate.isBlank()) d.rate = BigDecimal.valueOf(r).toPlainString() } }
     }
 
     // Derived numbers.
@@ -199,7 +200,7 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
     if (!d.itemised && (amountV == null || d.amount.isBlank())) errors += "Enter an amount"
     val totalPaid = receipt?.computedTotal ?: (amountV ?: 0)
     if (totalPaid <= 0) errors += "The total must be more than zero"
-    val rate = if (cur == home) 1.0 else d.rate.toDoubleOrNull()?.takeIf { it > 0 }
+    val rate = if (cur == home) 1.0 else d.rate.toDoubleOrNull()?.takeIf { it.isFinite() && it > 0 }
     if (rate == null) errors += "Enter the exchange rate"
     val totalHome = convert(totalPaid, cur, home, rate ?: 1.0)
     val costsPaid = receipt?.itemCosts().orEmpty()
@@ -230,9 +231,17 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
     fun save(then: (String) -> Unit = { nav.back() }) {
         if (d.tripId == DATE) {   // the shared date fund, not my budget; moving a normal expense there takes it out of my budget
             val draft = TxDraft("expense", totalHome, (d.merchant.trim().ifEmpty { d.note.trim() }.ifEmpty { "Date" }).take(100), d.date.toString())
+            // What this expense takes the fund below zero by, I paid: it tops the fund back up from my own budget.
+            val cover = overdrawn(ds.left, totalHome, dateTx?.amount ?: 0)
             scope.launch {
-                runCatching { if (dateTx != null) DateClient.updateTx(dateTx.id, draft) else DateClient.addTx(draft) }
-                    .onSuccess { existing?.let { App.store.deleteTxn(it.id) }; nav.back() }.onFailure { if (it !is kotlinx.coroutines.CancellationException) Toast.makeText(ctx, it.message, Toast.LENGTH_LONG).show() }
+                runCatching {
+                    if (dateTx != null) DateClient.updateTx(dateTx.id, draft) else DateClient.addTx(draft)
+                    if (cover > 0) DateClient.addTx(TxDraft("topup", cover, "Over budget: ${draft.note}".take(100), draft.date))
+                }.onSuccess {
+                    existing?.let { App.store.deleteTxn(it.id) }
+                    if (cover > 0) App.store.saveTxn(Txn(date = draft.date, total = cover, category = d.category, merchant = draft.note, note = "Date budget overspend"))
+                    nav.back()
+                }.onFailure { if (it !is kotlinx.coroutines.CancellationException) Toast.makeText(ctx, it.message, Toast.LENGTH_LONG).show() }
             }
             return
         }
@@ -337,7 +346,11 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
                 d.tripId = id
                 trips.firstOrNull { it.id == id }?.let { t -> d.paidCur = t.currency }
             })
-            if (d.tripId == DATE) Small("Goes to the shared date budget (your partner sees it), not your daily budget.")
+            if (d.tripId == DATE) {
+                Small("Goes to the shared date budget (your partner sees it), not your daily budget.")
+                val cover = overdrawn(ds.left, totalHome, dateTx?.amount ?: 0)
+                if (cover > 0) Small("The date budget is ${money(cover, home)} short, so that much comes out of your monthly budget.", color = Px.brown)
+            }
             else if (d.tripId != null) Small("Comes out of the trip fund, not your daily budget.")
         }
 

@@ -5,9 +5,15 @@ import java.math.BigInteger
 import java.math.RoundingMode
 import java.util.Currency
 
+// Minor units where they differ from 2, from java.util.Currency (JDK 21); codes with none (metals, XDR) count as 0.
+// A fixed table, the same as the web's money.ts, so both apps store the same amounts whatever the phone's own data says.
+private val DIGITS: Map<String, Int> =
+    ("ADP BEF BIF BYB BYR CLP DJF ESP GNF GRD ISK ITL JPY KMF KRW LUF MGF PTE PYG ROL RWF TPE TRL UGX UYI VND VUV XAF XOF XPF " +
+        "XAG XAU XBA XBB XBC XBD XDR XFO XFU XPD XPT XSU XTS XUA XXX").split(" ").associateWith { 0 } +
+        "BHD IQD JOD KWD LYD OMR TND".split(" ").associateWith { 3 } + mapOf("CLF" to 4, "UYW" to 4)
+
 /** Decimal places for an ISO currency code (JPY 0, SGD 2, KWD 3). Unknown codes get 2. */
-fun digits(currency: String): Int =
-    runCatching { Currency.getInstance(currency).defaultFractionDigits }.getOrDefault(2).coerceAtLeast(0)
+fun digits(currency: String): Int = DIGITS[currency] ?: 2
 
 /** Minor units → "12.50". */
 fun plain(minor: Long, currency: String): String =

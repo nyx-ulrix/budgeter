@@ -104,7 +104,7 @@ object DateClient {
     }
     private fun decFields(f: JsonObject?) = JsonObject(f.orEmpty().mapValues { dec(it.value.jsonObject) })
     private fun JsonElement?.str() = (this as? JsonPrimitive)?.takeIf { it.isString }?.content
-    private fun JsonElement?.long() = (this as? JsonPrimitive)?.let { it.longOrNull ?: it.doubleOrNull?.toLong() }   // numbers, or "3600" as auth sends them
+    private fun JsonElement?.long() = (this as? JsonPrimitive)?.let { it.longOrNull ?: it.doubleOrNull?.let(Math::round) }   // numbers (rounded, as the web does), or "3600" as auth sends them
 
     /**
      * Date budget work runs at app level, not in the screen that started it: a screen that changes (signing in swaps
@@ -248,13 +248,16 @@ object DateClient {
                 }
                 page = r["nextPageToken"].str().orEmpty()
             } while (page.isNotEmpty())
-            // DateBudget's carry-over for budgets from its first version: a fixed starting amount counts as a top-up.
+            val rows = budgetRows(budget.plan, today())
+            // DateBudget's carry-over for budgets from its first version: a fixed starting amount counts as a top-up,
+            // once, on the budget's first day (dated today it would count again in every month's view).
             val base = f["base"]?.takeIf { it is JsonPrimitive && !it.isString }.long()
             if (base != null && base > 0 && txs.none { it.id == "starting-budget" }) {
-                txs += Tx("starting-budget", "topup", base, "Starting budget", today(), "")
+                val first = (txs + rows).map { it.date }.filter { it.isNotEmpty() }.minOrNull() ?: today()
+                txs += Tx("starting-budget", "topup", base, "Starting budget", first, "")
             }
             txs.sortByDescending { it.date }
-            val all = (txs + budgetRows(budget.plan, today())).sortedByDescending { it.date }
+            val all = (txs + rows).sortedByDescending { it.date }
             val t = totals(all)
             set { copy(phase = Phase.Ready, uid = s.uid, name = s.name, budget = budget, txs = txs.toList(), all = all, left = t.left, topped = t.topped, spent = t.spent, error = null) }
         } catch (e: Exception) {
