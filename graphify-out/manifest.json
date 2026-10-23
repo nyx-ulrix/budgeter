@@ -2,7 +2,7 @@
   "app/build.gradle.kts": {
     "mtime": 1792723572.5858605,
     "ast_hash": "1d0a6c3f5519679e2cf289dc64c624ed",
-    "semantic_hash": ""
+    "semantic_hash": "1d0a6c3f5519679e2cf289dc64c624ed"
   },
   "app/src/main/java/com/nyxulrix/budgeter/App.kt": {
     "mtime": 1791268186.7767012,
@@ -12,47 +12,47 @@
   "app/src/main/java/com/nyxulrix/budgeter/MainActivity.kt": {
     "mtime": 1792223639.8537998,
     "ast_hash": "294d39fbfd4626419490aee204f542cd",
-    "semantic_hash": ""
+    "semantic_hash": "294d39fbfd4626419490aee204f542cd"
   },
   "app/src/main/java/com/nyxulrix/budgeter/ai/Ai.kt": {
     "mtime": 1792604171.8894136,
     "ast_hash": "019e8266558c89a6052029f4e5a3ef2b",
-    "semantic_hash": ""
+    "semantic_hash": "019e8266558c89a6052029f4e5a3ef2b"
   },
   "app/src/main/java/com/nyxulrix/budgeter/ai/OpenRouterLogin.kt": {
     "mtime": 1791270578.9446816,
     "ast_hash": "ab35a757286814412a1145cccfdc453d",
-    "semantic_hash": ""
+    "semantic_hash": "ab35a757286814412a1145cccfdc453d"
   },
   "app/src/main/java/com/nyxulrix/budgeter/core/Budget.kt": {
     "mtime": 1791853747.1257102,
     "ast_hash": "1bf4b301c1c7ad7e4befe8f8899d255f",
-    "semantic_hash": ""
+    "semantic_hash": "1bf4b301c1c7ad7e4befe8f8899d255f"
   },
   "app/src/main/java/com/nyxulrix/budgeter/core/Money.kt": {
     "mtime": 1792684897.345225,
     "ast_hash": "2ad647bbe8263b63b5276132a99cdccb",
-    "semantic_hash": ""
+    "semantic_hash": "2ad647bbe8263b63b5276132a99cdccb"
   },
   "app/src/main/java/com/nyxulrix/budgeter/core/Receipt.kt": {
     "mtime": 1792223726.3244438,
     "ast_hash": "7a09c7f464ad0c9b54e93c6edebcfd94",
-    "semantic_hash": ""
+    "semantic_hash": "7a09c7f464ad0c9b54e93c6edebcfd94"
   },
   "app/src/main/java/com/nyxulrix/budgeter/core/ReceiptText.kt": {
     "mtime": 1791642144.7902832,
     "ast_hash": "b0aac73ebb0913b7b13a6edb0d678758",
-    "semantic_hash": ""
+    "semantic_hash": "b0aac73ebb0913b7b13a6edb0d678758"
   },
   "app/src/main/java/com/nyxulrix/budgeter/core/Split.kt": {
     "mtime": 1791285745.8054192,
     "ast_hash": "c3386046af469e2e123c8536969ff7f0",
-    "semantic_hash": ""
+    "semantic_hash": "c3386046af469e2e123c8536969ff7f0"
   },
   "app/src/main/java/com/nyxulrix/budgeter/data/Actions.kt": {
     "mtime": 1792684832.495943,
     "ast_hash": "9166c080bd3ba09d39578e3496dc152d",
-    "semantic_hash": ""
+    "semantic_hash": "9166c080bd3ba09d39578e3496dc152d"
   },
   "app/src/main/java/com/nyxulrix/budgeter/data/Countries.kt": {
     "mtime": 1791268241.9641426,
@@ -62,102 +62,102 @@
   "app/src/main/java/com/nyxulrix/budgeter/data/Ledger.kt": {
     "mtime": 1792052892.7786016,
     "ast_hash": "20f4385e68c8c8a7d5f4c4b69f1d457e",
-    "semantic_hash": ""
+    "semantic_hash": "20f4385e68c8c8a7d5f4c4b69f1d457e"
   },
   "app/src/main/java/com/nyxulrix/budgeter/data/Rates.kt": {
     "mtime": 1791270578.942681,
     "ast_hash": "8a30b484d1d7bf75be481e9f4084cd53",
-    "semantic_hash": ""
+    "semantic_hash": "8a30b484d1d7bf75be481e9f4084cd53"
   },
   "app/src/main/java/com/nyxulrix/budgeter/data/State.kt": {
     "mtime": 1792054002.7047856,
     "ast_hash": "4e790c4dddf852f5b8d229d7e05ae371",
-    "semantic_hash": ""
+    "semantic_hash": "4e790c4dddf852f5b8d229d7e05ae371"
   },
   "app/src/main/java/com/nyxulrix/budgeter/data/Store.kt": {
     "mtime": 1791851931.864591,
     "ast_hash": "bf4cce675fcfe052cc02fc963bf97b3c",
-    "semantic_hash": ""
+    "semantic_hash": "bf4cce675fcfe052cc02fc963bf97b3c"
   },
   "app/src/main/java/com/nyxulrix/budgeter/ocr/Scanner.kt": {
     "mtime": 1791874113.5622346,
     "ast_hash": "3c36b16a224e596e2cf58a0a7ba7fa92",
-    "semantic_hash": ""
+    "semantic_hash": "3c36b16a224e596e2cf58a0a7ba7fa92"
   },
   "app/src/main/java/com/nyxulrix/budgeter/sync/Sheets.kt": {
     "mtime": 1791853224.041182,
     "ast_hash": "8396d386554051b7b1d1c979e31a0e20",
-    "semantic_hash": ""
+    "semantic_hash": "8396d386554051b7b1d1c979e31a0e20"
   },
   "app/src/main/java/com/nyxulrix/budgeter/ui/BudgetScreen.kt": {
     "mtime": 1791874372.198792,
     "ast_hash": "c12bcbcfc1e343cc75b63a55d69f5fd7",
-    "semantic_hash": ""
+    "semantic_hash": "c12bcbcfc1e343cc75b63a55d69f5fd7"
   },
   "app/src/main/java/com/nyxulrix/budgeter/ui/CompactScreen.kt": {
     "mtime": 1791869508.582369,
     "ast_hash": "00c4d5ea177ac98553edc86bae4ba239",
-    "semantic_hash": ""
+    "semantic_hash": "00c4d5ea177ac98553edc86bae4ba239"
   },
   "app/src/main/java/com/nyxulrix/budgeter/ui/Components.kt": {
     "mtime": 1792056368.4172688,
     "ast_hash": "a546c551886e90725c0978ab53589e8a",
-    "semantic_hash": ""
+    "semantic_hash": "a546c551886e90725c0978ab53589e8a"
   },
   "app/src/main/java/com/nyxulrix/budgeter/ui/ExpenseScreen.kt": {
     "mtime": 1792684967.256467,
     "ast_hash": "3fc3b8b503205325ddb2529edd5ebb57",
-    "semantic_hash": ""
+    "semantic_hash": "3fc3b8b503205325ddb2529edd5ebb57"
   },
   "app/src/main/java/com/nyxulrix/budgeter/ui/HomeScreen.kt": {
     "mtime": 1792054046.3442216,
     "ast_hash": "6f73112c2483e6eba9a5a05f62c852dd",
-    "semantic_hash": ""
+    "semantic_hash": "6f73112c2483e6eba9a5a05f62c852dd"
   },
   "app/src/main/java/com/nyxulrix/budgeter/ui/PlannedScreen.kt": {
     "mtime": 1791868011.7393918,
     "ast_hash": "a76fe77660dfe756d94fa20a1b0f3037",
-    "semantic_hash": ""
+    "semantic_hash": "a76fe77660dfe756d94fa20a1b0f3037"
   },
   "app/src/main/java/com/nyxulrix/budgeter/ui/ProfileScreen.kt": {
     "mtime": 1792223655.1342027,
     "ast_hash": "94c23d6c92b52e4dab4350a876e723fc",
-    "semantic_hash": ""
+    "semantic_hash": "94c23d6c92b52e4dab4350a876e723fc"
   },
   "app/src/main/java/com/nyxulrix/budgeter/ui/Root.kt": {
     "mtime": 1792052964.347049,
     "ast_hash": "4c83e12aad7f0ba3a56070743eeed216",
-    "semantic_hash": ""
+    "semantic_hash": "4c83e12aad7f0ba3a56070743eeed216"
   },
   "app/src/main/java/com/nyxulrix/budgeter/ui/SetupScreen.kt": {
     "mtime": 1791869914.0501888,
     "ast_hash": "70fa2cdcf49f8536e116902983ee7785",
-    "semantic_hash": ""
+    "semantic_hash": "70fa2cdcf49f8536e116902983ee7785"
   },
   "app/src/main/java/com/nyxulrix/budgeter/ui/Theme.kt": {
     "mtime": 1792054002.7067976,
     "ast_hash": "832622fa3270d5bc5ee6ba8baa923397",
-    "semantic_hash": ""
+    "semantic_hash": "832622fa3270d5bc5ee6ba8baa923397"
   },
   "app/src/main/java/com/nyxulrix/budgeter/ui/TxnsScreen.kt": {
     "mtime": 1791875823.4476337,
     "ast_hash": "1211d8637a75ae0382a581f7babdd352",
-    "semantic_hash": ""
+    "semantic_hash": "1211d8637a75ae0382a581f7babdd352"
   },
   "app/src/main/java/com/nyxulrix/budgeter/widget/Widgets.kt": {
     "mtime": 1792052991.5967765,
     "ast_hash": "9171c39421094191ea1cb41cc75b6886",
-    "semantic_hash": ""
+    "semantic_hash": "9171c39421094191ea1cb41cc75b6886"
   },
   "app/src/test/java/com/nyxulrix/budgeter/core/CoreTest.kt": {
     "mtime": 1791642144.7922864,
     "ast_hash": "e6c8c430d5b9b1f4c1371f4724b1f579",
-    "semantic_hash": ""
+    "semantic_hash": "e6c8c430d5b9b1f4c1371f4724b1f579"
   },
   "app/src/test/java/com/nyxulrix/budgeter/data/LedgerTest.kt": {
     "mtime": 1792723508.8432372,
     "ast_hash": "83afbb97863d117895198e03fe265113",
-    "semantic_hash": ""
+    "semantic_hash": "83afbb97863d117895198e03fe265113"
   },
   "build.gradle.kts": {
     "mtime": 1791267555.1433718,
@@ -177,77 +177,77 @@
   "CREDITS.md": {
     "mtime": 1791875865.1642096,
     "ast_hash": "e04805842dd4ad64528bd817b557f81f",
-    "semantic_hash": ""
+    "semantic_hash": "e04805842dd4ad64528bd817b557f81f"
   },
   "PLAN.md": {
-    "mtime": 1791853253.3819025,
-    "ast_hash": "cf3648ad10caeb8d1c39c0b872a037cc",
-    "semantic_hash": ""
+    "mtime": 1792723763.2254858,
+    "ast_hash": "a8d9cf58da376de142dcc56c96be2a48",
+    "semantic_hash": "a8d9cf58da376de142dcc56c96be2a48"
   },
   "README.md": {
-    "mtime": 1792469430.2654715,
-    "ast_hash": "3d6a7682aec3318e0e83a7589b46be8a",
-    "semantic_hash": ""
+    "mtime": 1792723763.2254858,
+    "ast_hash": "a8b375fe8a90773ecf7426f3d28b8edb",
+    "semantic_hash": "a8b375fe8a90773ecf7426f3d28b8edb"
   },
   "docs/GRAPHICS.md": {
     "mtime": 1791875872.272425,
     "ast_hash": "b399319d42f2f9472c44c316943e6b8f",
-    "semantic_hash": ""
+    "semantic_hash": "b399319d42f2f9472c44c316943e6b8f"
   },
   "docs/google-setup.md": {
     "mtime": 1791378405.28138,
     "ast_hash": "eb574eb0fbbeda4f90419df57d4478bc",
-    "semantic_hash": ""
+    "semantic_hash": "eb574eb0fbbeda4f90419df57d4478bc"
   },
   "app/src/main/java/com/nyxulrix/budgeter/ui/CameraScreen.kt": {
     "mtime": 1791643053.5503938,
     "ast_hash": "ee758f806edfb6c9eae019223d6e99f8",
-    "semantic_hash": ""
+    "semantic_hash": "ee758f806edfb6c9eae019223d6e99f8"
   },
   "app/src/main/java/com/nyxulrix/budgeter/ui/MonthBar.kt": {
     "mtime": 1791291057.5559566,
     "ast_hash": "5bdd2ec8d23a2adfcb3edb19b2af684b",
-    "semantic_hash": ""
+    "semantic_hash": "5bdd2ec8d23a2adfcb3edb19b2af684b"
   },
   "app/src/main/java/com/nyxulrix/budgeter/ui/TripScreen.kt": {
     "mtime": 1791869508.582369,
     "ast_hash": "4dc8a905163f78bfc3118c846f40cc06",
-    "semantic_hash": ""
+    "semantic_hash": "4dc8a905163f78bfc3118c846f40cc06"
   },
   "app/src/main/java/com/nyxulrix/budgeter/ui/UpdateUi.kt": {
     "mtime": 1791286502.778488,
     "ast_hash": "27d9b8c390f102928d95d67fd24ccfab",
-    "semantic_hash": ""
+    "semantic_hash": "27d9b8c390f102928d95d67fd24ccfab"
   },
   "app/src/main/java/com/nyxulrix/budgeter/update/Updater.kt": {
     "mtime": 1791286409.8775983,
     "ast_hash": "08c664276d5df20f54e1245d8c5fbdc1",
-    "semantic_hash": ""
+    "semantic_hash": "08c664276d5df20f54e1245d8c5fbdc1"
   },
   "app/src/main/java/com/nyxulrix/budgeter/widget/WidgetArt.kt": {
     "mtime": 1792052991.5977788,
     "ast_hash": "977323c2f041c2d9f0c57157cfffaf2a",
-    "semantic_hash": ""
+    "semantic_hash": "977323c2f041c2d9f0c57157cfffaf2a"
   },
   "app/src/test/java/com/nyxulrix/budgeter/update/UpdaterTest.kt": {
     "mtime": 1791283654.2475574,
     "ast_hash": "4bd4eb6edcdc96df3b02917ac6e32ba1",
-    "semantic_hash": ""
+    "semantic_hash": "4bd4eb6edcdc96df3b02917ac6e32ba1"
   },
   ".github/workflows/release.yml": {
     "mtime": 1792223639.8437765,
     "ast_hash": "3646d4bb2972d314140447d944832e4c",
-    "semantic_hash": ""
+    "semantic_hash": "3646d4bb2972d314140447d944832e4c"
   },
   "docs/index.html": {
     "mtime": 1791865183.3379183,
     "ast_hash": "a67f56e8beb024e6d3f0cdb63db3ef32",
-    "semantic_hash": ""
+    "semantic_hash": "a67f56e8beb024e6d3f0cdb63db3ef32"
   },
   "docs/privacy.html": {
     "mtime": 1792057456.2316105,
     "ast_hash": "3e866a226c3c0b049cc0bb582bf39515",
-    "semantic_hash": ""
+    "semantic_hash": "3e866a226c3c0b049cc0bb582bf39515"
   },
   "app/src/main/res/drawable-nodpi/icon_airplane.png": {
     "mtime": 1791267851.6814725,
@@ -332,17 +332,17 @@
   "firebase.json": {
     "mtime": 1791378346.0448353,
     "ast_hash": "77740fa462f153ccb86697ffea58e70c",
-    "semantic_hash": ""
+    "semantic_hash": "77740fa462f153ccb86697ffea58e70c"
   },
   "app/src/main/java/com/nyxulrix/budgeter/data/Records.kt": {
     "mtime": 1792054002.7067976,
     "ast_hash": "540d7d70de08eb65ccb8195902417d05",
-    "semantic_hash": ""
+    "semantic_hash": "540d7d70de08eb65ccb8195902417d05"
   },
   "app/src/test/java/com/nyxulrix/budgeter/data/RecordsTest.kt": {
     "mtime": 1791851956.3601108,
     "ast_hash": "7301faa7abb2ac75f06045dea80e1222",
-    "semantic_hash": ""
+    "semantic_hash": "7301faa7abb2ac75f06045dea80e1222"
   },
   "app/src/main/res/drawable-nodpi/app_icon.png": {
     "mtime": 1791869376.4667058,
@@ -352,46 +352,46 @@
   "app/src/main/java/com/nyxulrix/budgeter/core/DateMoney.kt": {
     "mtime": 1792684962.6117578,
     "ast_hash": "d8c85b62c2b6579645aea9b8e04b2dae",
-    "semantic_hash": ""
+    "semantic_hash": "d8c85b62c2b6579645aea9b8e04b2dae"
   },
   "app/src/main/java/com/nyxulrix/budgeter/date/DateClient.kt": {
     "mtime": 1792684917.312049,
     "ast_hash": "255dddb8d33122a282a97af6219da54f",
-    "semantic_hash": ""
+    "semantic_hash": "255dddb8d33122a282a97af6219da54f"
   },
   "app/src/main/java/com/nyxulrix/budgeter/ui/DateScreen.kt": {
     "mtime": 1792223639.8447762,
     "ast_hash": "44a0a861216429fecb6e1dcecc825cad",
-    "semantic_hash": ""
+    "semantic_hash": "44a0a861216429fecb6e1dcecc825cad"
   },
   "app/src/test/java/com/nyxulrix/budgeter/core/DateMoneyTest.kt": {
     "mtime": 1792723508.8432372,
     "ast_hash": "c936326acca154f65137c2c6a45e48d0",
-    "semantic_hash": ""
+    "semantic_hash": "c936326acca154f65137c2c6a45e48d0"
   },
   "app/src/main/java/com/nyxulrix/budgeter/ai/Food.kt": {
     "mtime": 1792057420.0872731,
     "ast_hash": "54aae158ea961022343a0bbc30aead9f",
-    "semantic_hash": ""
+    "semantic_hash": "54aae158ea961022343a0bbc30aead9f"
   },
   "app/src/main/java/com/nyxulrix/budgeter/core/Macros.kt": {
     "mtime": 1792052868.6268313,
     "ast_hash": "613c960a5f28f063b1daba92f018adbc",
-    "semantic_hash": ""
+    "semantic_hash": "613c960a5f28f063b1daba92f018adbc"
   },
   "app/src/main/java/com/nyxulrix/budgeter/ui/MacrosScreen.kt": {
     "mtime": 1792057456.2316105,
     "ast_hash": "a19ec73c7efefbb5e170eb076df9bc21",
-    "semantic_hash": ""
+    "semantic_hash": "a19ec73c7efefbb5e170eb076df9bc21"
   },
   "app/src/test/java/com/nyxulrix/budgeter/core/MacrosTest.kt": {
     "mtime": 1792223726.354699,
     "ast_hash": "b0041348d882e7a31024212ae9cf4efe",
-    "semantic_hash": ""
+    "semantic_hash": "b0041348d882e7a31024212ae9cf4efe"
   },
   "app/src/test/java/com/nyxulrix/budgeter/date/DateClientTest.kt": {
     "mtime": 1792202609.6488822,
     "ast_hash": "3586c85885a46727f8eb0fb1d7df2257",
-    "semantic_hash": ""
+    "semantic_hash": "3586c85885a46727f8eb0fb1d7df2257"
   }
 }

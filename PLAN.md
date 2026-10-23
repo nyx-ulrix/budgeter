@@ -3,7 +3,7 @@
 Android budget planner from `Budget_Planner_App_PRD.md`, skinned with the Nostelika pixel-art brief.
 This file records every decision that differs from or adds to those two briefs. Where it is silent, the briefs apply.
 
-Status: v1.1.0 released 2026-10-06. Section 12 overrides earlier sections where they differ.
+Status: v1.9.2 released 2026-10-23 (web app deployed the same day). Sections 12 and 14 override earlier sections where they differ.
 
 ---
 
@@ -254,3 +254,11 @@ Each ends with a working build. After M9, one Fable audit of the whole app, then
 ## 13. Two-way sync with the web app (v1.6)
 
 The web app ([budgeter-web](https://github.com/nyx-ulrix/budgeter-web), React Native for Web) shares the same Budgeter spreadsheet. Besides the readable month tabs, a hidden `_sync` tab holds one row per record: `setup`, `categories`, `plan:<period>`, `txn:<id>`, `planned:<id>`, `trip:<id>`, each with the time it last changed and its JSON (empty = deleted). `Store.update` stamps every record a change touches (`Records.kt`). Each sync takes the sheet's records that are newer than ours, writes the month tabs, then uploads our newer records. Last writer wins per record. The phone syncs after each change and whenever the app is opened; the web app also syncs every minute while it's open. AI keys and sync settings stay on each device. `Records.kt` and the web's `records.ts` define the format and must stay in step.
+
+## 14. AI speed, money audit and date overspend (v1.9.1–1.9.2, 2026-10-22/23)
+
+| Area | Now |
+|---|---|
+| AI speed (1.9.1) | Gemini calls send `reasoning_effort: "low"` (`Ai.kt` / `ai.ts` `chat()`). Gemini 3.x Flash thinks at length by default, which made a receipt take many seconds; reading one needs little. Default model stays `gemini-3.8-flash` (free tier; paid price doubles 2027-01-01); `gemini-3.5-flash-lite` is the faster, cheaper fallback. A saved provider keeps its own model: change it in Profile → AI. |
+| Date overspend (1.9.2) | A date expense that takes the shared fund below zero is covered by whoever saved it: a `topup` "Over budget: <name>" goes to the fund and the same amount becomes their own expense (note "Date budget overspend"). Only the part that expense overdraws counts (`overdrawn(left, amount, old)` in `DateMoney.kt` / `date/money.ts`), so a fund already short through someone else's spending isn't charged to me, and re-saving a covered expense charges nothing. To cover an older shortfall, open that expense and Save once. |
+| Money audit (1.9.2) | Fable audit, fixes on Opus, both apps. Web AI amounts go through `toMinor` (exact, no thousands guess; 0.675 was read as 675). Old DateBudget `base` is one top-up on the budget's first day, not today (it counted again every month). Editing a "Buy now" expense below its reservation frees the extra (`withTxn` / `saveTxn`). Android currency decimals use the same fixed table as the web, not the phone's ICU. Date amounts are rounded, not truncated, on both. Android: rates shown as plain decimals, infinite rates refused. Web: a 29 Feb receipt date clamps like java.time; no split on date expenses. |

@@ -158,6 +158,10 @@ sequenceDiagram
     App->>FS: POST tx {kind, amount, note, date, by}
     FS-->>App: created document
     App->>App: show it at once, and only the newest reload may replace the list
+    opt the expense takes the fund below zero
+        App->>FS: POST tx {kind: topup, amount: shortfall} ("Over budget: …")
+        App->>App: same amount saved as my own expense ("Date budget overspend")
+    end
     Note over App,FS: My monthly share is a fixed cost in my own budget,<br/>so date spending never comes out of it twice.
 ```
 
@@ -237,4 +241,4 @@ Windows needs Android Studio's Java first, for example in Git Bash: `export JAVA
 
 ## Cheapest AI setup
 
-Get a free Gemini key at https://aistudio.google.com/apikey and add it under Profile → AI receipt reading. Without any key the built-in offline reader is used.
+Get a free Gemini key at https://aistudio.google.com/apikey and add it under Profile → AI receipt reading. The default model is `gemini-3.8-flash`, asked to think little (`reasoning_effort: "low"`) so a receipt comes back in a few seconds; `gemini-3.5-flash-lite` is faster and cheaper still. Without any key the built-in offline reader is used.
