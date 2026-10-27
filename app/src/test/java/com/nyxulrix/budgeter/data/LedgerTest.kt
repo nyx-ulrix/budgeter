@@ -148,8 +148,14 @@ class LedgerTest {
         assertEquals(150_000L, st.spendable("2026-10"))      // budget carries over
         assertEquals(80_000L, st.savedToDate("2026-10", LocalDate.of(2026, 10, 15)))  // only finished months
         assertEquals(0L, st.savedToDate("2026-09", LocalDate.of(2026, 9, 20)))
+        assertEquals(                                        // Oct inherits Sep's plan and spends nothing
+            listOf(MonthSaving("2026-09", 80_000, 80_000), MonthSaving("2026-10", 200_000, 280_000)),
+            st.savingsHistory(LocalDate.of(2026, 11, 15)),
+        )
+        assertEquals(emptyList<MonthSaving>(), AppState(setup).savingsHistory(LocalDate.of(2026, 11, 15)))
         val over = st.copy(txns = listOf(Txn(date = "2026-09-10", total = 250_000)))
         assertEquals(-50_000L, over.monthSaved("2026-09"))   // overspend comes out of savings
+        assertEquals(listOf(-50_000L, 150_000L), over.savingsHistory(LocalDate.of(2026, 11, 15)).map { it.total })
         assertEquals(true, over.snapshot(LocalDate.of(2026, 9, 20)).over)
         val noBudget = st.copy(plans = mapOf("2026-09" to Plan(300_000)))
         assertEquals(300_000L, noBudget.spendable("2026-09"))  // no budget set: everything available

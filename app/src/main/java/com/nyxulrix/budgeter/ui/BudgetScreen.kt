@@ -1,6 +1,10 @@
 package com.nyxulrix.budgeter.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
@@ -12,6 +16,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.nyxulrix.budgeter.App
@@ -42,6 +49,7 @@ import com.nyxulrix.budgeter.data.spendable
 import com.nyxulrix.budgeter.data.available
 import com.nyxulrix.budgeter.data.monthSaved
 import com.nyxulrix.budgeter.data.savedToDate
+import com.nyxulrix.budgeter.data.savingsHistory
 import com.nyxulrix.budgeter.data.tripMonthlyTotal
 import com.nyxulrix.budgeter.data.spent
 import com.nyxulrix.budgeter.data.startDay
@@ -91,6 +99,7 @@ fun BudgetScreen(st: AppState) {
                 }
             }
             Small("Whatever you don't spend becomes savings when the month ends, including money you never budgeted. A month that goes over takes it back out.")
+            PastMonths(st, key, cur)
         }
 
         val setAside = plan.lines.filter { (it.kind == LineKind.RESERVE && !st.isSpentReserve(it)) || it.kind == LineKind.TRIP_FUND }
@@ -123,6 +132,51 @@ fun BudgetScreen(st: AppState) {
         }
     }
     reserving?.let { pl -> ReserveDialog(st, pl) { reserving = null } }
+}
+
+private val MONTHS = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+private fun monthName(key: String) = "${MONTHS[key.substring(5).toInt() - 1]} ${key.take(4)}"
+
+/**
+ * The last 12 finished months up to [upTo]: a bar each (green saved, red went over) around a zero line,
+ * then the same months newest first with the running total.
+ */
+@Composable
+private fun PastMonths(st: AppState, upTo: String, cur: String) {
+    val months = st.savingsHistory().filter { it.key <= upTo }.takeLast(12)
+    if (months.isEmpty()) return Small("Past months show here once your first month ends.")
+    val up = months.maxOf { it.saved }.coerceAtLeast(0)
+    val down = months.maxOf { -it.saved }.coerceAtLeast(0)
+    val scale = 72f / (up + down).coerceAtLeast(1)
+    Column1 {
+        Label("Past months")
+        Row(
+            Modifier.clearAndSetSemantics { contentDescription = "Saved per month: " + months.joinToString { "${monthName(it.key)} ${money(it.saved, cur)}" } },
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            months.forEach { m ->
+                androidx.compose.foundation.layout.Column(Modifier.weight(1f).widthIn(max = 44.dp)) {
+                    Box(Modifier.fillMaxWidth().height((up * scale).dp), contentAlignment = Alignment.BottomCenter) {
+                        if (m.saved > 0) Box(Modifier.fillMaxWidth().height((m.saved * scale).coerceAtLeast(2f).dp).background(Px.green))
+                    }
+                    Box(Modifier.fillMaxWidth().height(2.dp).background(Px.brown))
+                    Box(Modifier.fillMaxWidth().height((down * scale).dp)) {
+                        if (m.saved < 0) Box(Modifier.fillMaxWidth().height((-m.saved * scale).coerceAtLeast(2f).dp).background(Px.red))
+                    }
+                    Text(MONTHS[m.key.substring(5).toInt() - 1].take(1), Modifier.fillMaxWidth(), style = Type.label, textAlign = TextAlign.Center)
+                }
+            }
+        }
+        months.asReversed().forEach { m ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Body(monthName(m.key), Modifier.weight(1f))
+                androidx.compose.foundation.layout.Column(horizontalAlignment = Alignment.End) {
+                    Text((if (m.saved > 0) "+" else "") + money(m.saved, cur), style = Type.body, color = if (m.saved < 0) Px.red else Px.green)
+                    Small("Total ${money(m.total, cur)}")
+                }
+            }
+        }
+    }
 }
 
 @Composable

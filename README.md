@@ -1,6 +1,6 @@
 # Budgeter
 
-Pixel-art Android budget planner for one person. Set a monthly budget and a savings target, see what you can spend today (unspent days carry forward), scan receipts on the phone and split them per item including service charge and GST, plan trips and save for them month by month, and keep everything in your own Google Sheet. Track meals and macros, and share a date budget with your partner. Three home-screen widgets.
+Pixel-art Android budget planner for one person. Set a monthly budget and a savings target, see what you can spend today (unspent days carry forward) and what each past month saved, scan receipts on the phone and split them per item including service charge and GST, plan trips and save for them month by month, and keep everything in your own Google Sheet. Track meals and macros, and share a date budget with your partner. Three home-screen widgets.
 
 There's also a web version, [Budgeter Web](https://github.com/nyx-ulrix/budgeter-web), at https://app.budgeter.liewjiaen.com. With Google Sheets sync on in both, the phone and the web app share everything: expenses, budget, planned purchases, trips, categories and settings.
 
@@ -115,6 +115,16 @@ flowchart TD
     carry --> loop
     loop -->|done| today["Today's budget = (pool − bonus) ÷ days left<br/>bonus = saved-up money, minus today's monthly-category spending"]
     today --> show["Home: left today = budget + bonus − spent today<br/>pace = spent vs. an even burn of the month"]
+```
+
+### Savings
+
+A finished month saves everything earned that wasn't spent; an overspent month counts negative. Budget → Savings shows the total so far and, under "Past months", a bar and a row for each of the last 12 finished months with the running total.
+
+```mermaid
+flowchart LR
+    m["Month saved =<br/>income + extra money − fixed costs<br/>− reservations − trip funds − my spending"] --> t["Saved to date = sum of finished months"]
+    t --> b["Roughly in the bank = starting balance + saved to date<br/>+ this month so far + trip and reserved money not yet spent<br/>− what friends still owe you + what you owe them"]
 ```
 
 ### Scanning a receipt

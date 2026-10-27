@@ -35,14 +35,27 @@ fun AppState.planFor(key: String): Plan = plans[key] ?: plans.filterKeys { it < 
 fun AppState.monthSaved(key: String): Long =
     planFor(key).total(LineKind.SAVINGS) + available(key) - spent(Period.ofKey(key, startDay))
 
-/** Savings from the first month through [key], counting only months that have ended by [today]. */
-fun AppState.savedToDate(key: String, today: LocalDate = LocalDate.now()): Long {
-    val first = plans.keys.minOrNull() ?: return 0
+/** A finished month: what it saved and the savings total from the first month through it. */
+data class MonthSaving(val key: String, val saved: Long, val total: Long)
+
+/** Every month from the first plan that has ended by [today], oldest first. */
+fun AppState.savingsHistory(today: LocalDate = LocalDate.now()): List<MonthSaving> {
+    val first = plans.keys.minOrNull() ?: return emptyList()
     var p = Period.ofKey(first, startDay)
-    var sum = 0L
-    while (p.key <= key && !p.end.isAfter(today)) { sum += monthSaved(p.key); p = p.next() }
-    return sum
+    var total = 0L
+    val out = mutableListOf<MonthSaving>()
+    while (!p.end.isAfter(today)) {
+        val saved = monthSaved(p.key)
+        total += saved
+        out += MonthSaving(p.key, saved, total)
+        p = p.next()
+    }
+    return out
 }
+
+/** Savings from the first month through [key], counting only months that have ended by [today]. */
+fun AppState.savedToDate(key: String, today: LocalDate = LocalDate.now()): Long =
+    savingsHistory(today).lastOrNull { it.key <= key }?.total ?: 0
 
 fun Plan.total(kind: LineKind): Long = lines.filter { it.kind == kind }.sumOf { it.amount }
 

@@ -1,1 +1,19 @@
-{"0": "Small", "1": "AppState", "2": "Sheets", "3": "Ledger.kt", "4": "Widgets.kt", "5": "MealDialog", "6": "Ai", "7": "DateMoney.kt", "8": "DateClient.kt", "9": "Screen", "10": "Budgeter README", "11": "Receipt Pipeline", "12": "Art", "13": "Food", "14": "ReceiptText", "15": "allocate", "16": "Budgeter graphics list", "17": "Daily budget replay with leftovers", "18": "Turning on Google Sheets sync (setup guide)", "19": "Budget.kt", "20": "DateBudgetFold", "21": "Date budget shared with a partner (Firestore)", "22": "Updater", "23": "Release GitHub Actions workflow", "24": "draftFrom", "25": "CoreTest", "26": "Countries.kt", "27": ".rows", "28": "App", "29": "Pace", "31": "gradlew", "32": "Rates", "33": "UpdaterTest", "34": "app/build.gradle.kts", "35": "build.gradle.kts", "36": "settings.gradle.kts"}
+{
+  "0": "Small",
+  "1": "AppState",
+  "2": "Sheets",
+  "6": "Ai",
+  "7": "DateMoney.kt",
+  "8": "DateClient.kt",
+  "11": "Receipt Pipeline",
+  "16": "Budgeter graphics list",
+  "17": "Daily budget replay with leftovers",
+  "18": "Turning on Google Sheets sync (setup guide)",
+  "21": "Date budget shared with a partner (Firestore)",
+  "23": "Release GitHub Actions workflow",
+  "26": "Countries.kt",
+  "31": "gradlew",
+  "34": "app/build.gradle.kts",
+  "35": "build.gradle.kts",
+  "36": "settings.gradle.kts"
+}
