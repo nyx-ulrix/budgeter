@@ -26,8 +26,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.nyxulrix.budgeter.R
+import com.nyxulrix.budgeter.data.editSetup
+import com.nyxulrix.budgeter.data.bankBalance
+import com.nyxulrix.budgeter.data.Bank
+import com.nyxulrix.budgeter.core.plain
+import com.nyxulrix.budgeter.core.parseMoney
+import com.nyxulrix.budgeter.App
 import com.nyxulrix.budgeter.core.Pace
 import com.nyxulrix.budgeter.core.money
 import com.nyxulrix.budgeter.data.AppState
@@ -111,6 +118,7 @@ fun HomeScreen(st: AppState) {
             } + " · $daysLeft days to go · resets ${snap.period.end}")
             val ds by DateClient.state.collectAsState()
             if (ds.phase == Phase.Ready) Small("Date fund: ${money(monthLeft(ds.all, snap.period), cur)} left this month (shared, outside this budget)")
+            BankRow(st)
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -196,6 +204,53 @@ private fun SavedUp(snap: com.nyxulrix.budgeter.data.Snapshot, cur: String) {
 private fun Swatch(color: Color) = Box(Modifier.size(10.dp).border(1.dp, Px.brown).background(color))
 
 /** Spent per day for the last 3 days as small bars. */
+/**
+ * What should be in the bank by the app's tally, to check against the real balance. Hidden until tapped, every time
+ * Home opens, so it isn't on screen by accident.
+ */
+@Composable
+private fun BankRow(st: AppState) {
+    val cur = st.currency
+    var shown by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf(false) }
+    val bank = st.setup?.bank
+    val balance = st.bankBalance()
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Body("In the bank", Modifier.weight(1f))
+            if (balance == null) PixelButton("Set", { editing = true }, kind = Kind.SECONDARY)
+            else {
+                Text(if (shown) money(balance, cur) else "••••••", style = Type.body, color = if (balance < 0) Px.red else Px.brown)
+                PixelButton(if (shown) "Hide" else "Show", { shown = !shown }, kind = Kind.SECONDARY)
+            }
+        }
+        if (balance == null) Small("Enter your bank balance once to check the app's tally against it.")
+        if (shown && bank != null) {
+            Small("From your balance on ${bank.date}, plus income and extra money, less fixed costs and what you've paid since. Different from the bank? Something wasn't logged.")
+            PixelButton("Update balance", { editing = true }, kind = Kind.SECONDARY)
+        }
+    }
+    if (editing) BankDialog(st) { editing = false }
+}
+
+@Composable
+private fun BankDialog(st: AppState, onDismiss: () -> Unit) {
+    val cur = st.currency
+    var text by remember { mutableStateOf(if (st.setup?.bank != null) plain(st.bankBalance() ?: 0, cur) else "") }
+    var date by remember { mutableStateOf(LocalDate.now()) }
+    val amount = parseMoney(text, cur)
+    PixelDialog("Bank balance", onDismiss) {
+        PixelField(text, { text = it }, "Balance the bank shows", keyboard = KeyboardType.Decimal,
+            error = if (text.isNotBlank() && amount == null) "Not an amount" else null)
+        DateField("At the end of", date, { date = it })
+        Small("Log everything up to that day first. From then on the app adds income and takes off what you pay.")
+        PixelButton("Save", {
+            st.setup?.let { App.store.editSetup(it.copy(bank = Bank(amount!!, date.toString()))) }
+            onDismiss()
+        }, enabled = amount != null && st.setup != null)
+    }
+}
+
 @Composable
 private fun Sparkline(st: AppState, today: LocalDate) {
     val days = (2 downTo 0).map { today.minusDays(it.toLong()) }

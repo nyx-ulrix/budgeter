@@ -1,6 +1,6 @@
 # Budgeter
 
-Pixel-art Android budget planner for one person. Set a monthly budget and a savings target, see what you can spend today (unspent days carry forward) and what each past month saved, scan receipts on the phone and split them per item including service charge and GST, plan trips and save for them month by month, and keep everything in your own Google Sheet. Track meals and macros, and share a date budget with your partner. Three home-screen widgets.
+Pixel-art Android budget planner for one person. Set a monthly budget and a savings target, see what you can spend today (unspent days carry forward) what each past month saved, and what should be in your bank, scan receipts on the phone and split them per item including service charge and GST, plan trips and save for them month by month, and keep everything in your own Google Sheet. Track meals and macros, and share a date budget with your partner. Three home-screen widgets.
 
 There's also a web version, [Budgeter Web](https://github.com/nyx-ulrix/budgeter-web), at https://app.budgeter.liewjiaen.com. With Google Sheets sync on in both, the phone and the web app share everything: expenses, budget, planned purchases, trips, categories and settings.
 
@@ -119,12 +119,12 @@ flowchart TD
 
 ### Savings
 
-A finished month saves everything earned that wasn't spent; an overspent month counts negative. Budget → Savings shows the total so far and, under "Past months", a bar and a row for each of the last 12 finished months with the running total.
+A finished month saves everything earned that wasn't spent; an overspent month counts negative. Budget → Savings shows the total so far and, under "Past months", a bar and a row for each of the last 12 finished months with the running total. To check the tally against the bank, enter your real balance once on Home ("In the bank"); the app keeps it up to date from what you log and keeps it hidden until you tap Show.
 
 ```mermaid
 flowchart LR
     m["Month saved =<br/>income + extra money − fixed costs<br/>− reservations − trip funds − my spending"] --> t["Saved to date = sum of finished months"]
-    t --> b["Roughly in the bank = starting balance + saved to date<br/>+ this month so far + trip and reserved money not yet spent<br/>− what friends still owe you + what you owe them"]
+    bank["In the bank (Home, hidden until Show) =<br/>balance you entered for a day<br/>+ income, extra money − fixed costs after it<br/>− what later bills took out (less shares paid back)"]
 ```
 
 ### Scanning a receipt

@@ -203,4 +203,28 @@ class LedgerTest {
         assertEquals(270_000L, edited.spendable("2026-10"))
         assertEquals(50_000L, bought.withTxn(t.copy(total = 60_000), 1).txns.first { it.id == t.id }.fromReserve)   // dearer: unchanged
     }
+
+    @Test fun bankBalanceIsTheEnteredBalancePlusWhatMovedAfterItsDay() {
+        val st = AppState(
+            setup.copy(bank = Bank(500_000, "2026-10-15")),
+            plans = mapOf("2026-10" to Plan(300_000, listOf(
+                Line(kind = LineKind.FIXED, name = "Rent", amount = 100_000),                                       // undated: on 1 Oct, already in the balance
+                Line(kind = LineKind.EXTRA, name = "Gift", amount = 5_000, added = "2026-10-20"),
+                Line(kind = LineKind.RESERVE, name = "Shoes", amount = 9_000, plannedId = "p", added = "2026-10-20"), // still in the bank
+            ))),
+            txns = listOf(
+                Txn(date = "2026-10-10", total = 7_000),                                                            // before the balance: already in it
+                Txn(date = "2026-10-16", total = 2_000),
+                Txn(date = "2026-10-17", total = 9_000, people = 3, shares = mapOf(ME to 3_000L, "P2" to 3_000L, "P3" to 3_000L), paidBack = setOf("P2")),
+                Txn(date = "2026-10-18", total = 4_000, people = 2, payer = "P2", shares = mapOf(ME to 2_000L, "P2" to 2_000L)),
+                Txn(date = "2026-10-19", total = 6_000, tripId = "t"),                                              // trips still come out of the bank
+            ),
+        )
+        assertNull(AppState(setup).bankBalance(LocalDate.of(2026, 10, 31)))
+        assertEquals(500_000L, st.bankBalance(LocalDate.of(2026, 10, 15)))
+        assertEquals(500_000L + 5_000 - 2_000 - 6_000 - 6_000, st.bankBalance(LocalDate.of(2026, 10, 31)))
+        assertEquals(491_000L + 300_000 - 100_000, st.bankBalance(LocalDate.of(2026, 11, 1)))   // November's plan lands on 1 Nov
+        val paid = st.copy(txns = st.txns.map { if (it.payer == "P2") it.copy(paidBack = setOf(ME)) else it })
+        assertEquals(491_000L - 2_000, paid.bankBalance(LocalDate.of(2026, 10, 31)))           // my share leaves once I pay P2 back
+    }
 }

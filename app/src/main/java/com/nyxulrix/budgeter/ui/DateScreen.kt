@@ -40,6 +40,7 @@ import com.nyxulrix.budgeter.core.Period
 import com.nyxulrix.budgeter.core.Tx
 import com.nyxulrix.budgeter.core.contributions
 import com.nyxulrix.budgeter.core.money
+import com.nyxulrix.budgeter.core.overdrawn
 import com.nyxulrix.budgeter.core.parseMoney
 import com.nyxulrix.budgeter.core.plain
 import com.nyxulrix.budgeter.core.totals
@@ -91,9 +92,18 @@ fun DateRefresh() {
     }
 }
 
-/** What's left in the shared fund the day before [end] (today, for the month we're in): everything up to then carries over. */
 /** Each month stands alone: what was added in [p] minus what was spent in it. Nothing carries over between months. */
 fun monthLeft(all: List<Tx>, p: com.nyxulrix.budgeter.core.Period) = totals(all.filter { it.date >= p.start.toString() && it.date < p.end.toString() }).left
+
+/**
+ * How far saving a date expense of [amount] on [date] (replacing [old] when editing) takes that month's fund below zero.
+ * Months don't carry over, so only the expense's own month counts, as the fund shows it.
+ */
+fun AppState.dateCover(all: List<Tx>, date: LocalDate, amount: Long, old: Tx? = null): Long {
+    val p = periodOf(date)
+    val inMonth = old != null && old.date >= p.start.toString() && old.date < p.end.toString()
+    return overdrawn(monthLeft(all, p), amount, if (inMonth) old!!.amount else 0)
+}
 
 /** A titled part of the Date budget fold. */
 @Composable

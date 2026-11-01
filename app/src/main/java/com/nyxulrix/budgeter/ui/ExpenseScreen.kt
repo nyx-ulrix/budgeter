@@ -39,7 +39,6 @@ import com.nyxulrix.budgeter.core.allocate
 import com.nyxulrix.budgeter.core.convert
 import com.nyxulrix.budgeter.core.itemShares
 import com.nyxulrix.budgeter.core.money
-import com.nyxulrix.budgeter.core.overdrawn
 import com.nyxulrix.budgeter.core.parseMoney
 import com.nyxulrix.budgeter.core.plain
 import com.nyxulrix.budgeter.core.split
@@ -232,7 +231,7 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
         if (d.tripId == DATE) {   // the shared date fund, not my budget; moving a normal expense there takes it out of my budget
             val draft = TxDraft("expense", totalHome, (d.merchant.trim().ifEmpty { d.note.trim() }.ifEmpty { "Date" }).take(100), d.date.toString())
             // What this expense takes the fund below zero by, I paid: it tops the fund back up from my own budget.
-            val cover = overdrawn(ds.left, totalHome, dateTx?.amount ?: 0)
+            val cover = st.dateCover(ds.all, d.date, totalHome, dateTx)
             scope.launch {
                 runCatching {
                     if (dateTx != null) DateClient.updateTx(dateTx.id, draft) else DateClient.addTx(draft)
@@ -348,8 +347,8 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
             })
             if (d.tripId == DATE) {
                 Small("Goes to the shared date budget (your partner sees it), not your daily budget.")
-                val cover = overdrawn(ds.left, totalHome, dateTx?.amount ?: 0)
-                if (cover > 0) Small("The date budget is ${money(cover, home)} short, so that much comes out of your monthly budget.", color = Px.brown)
+                val cover = st.dateCover(ds.all, d.date, totalHome, dateTx)
+                if (cover > 0) Small("The date budget is ${money(cover, home)} short this month, so that much comes out of your monthly budget.", color = Px.brown)
             }
             else if (d.tripId != null) Small("Comes out of the trip fund, not your daily budget.")
         }

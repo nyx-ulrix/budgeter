@@ -40,7 +40,12 @@ data class Setup(
     val startDay: Int = 1,        // budget period starts on this day of the month (1–28)
     val name: String = "",
     val avatar: String? = null,   // profile picture as a small JPEG data URL; synced with the web app through the setup record
+    val bank: Bank? = null,       // a real bank balance to check the app's tally against
 )
+
+/** My bank balance as the bank showed it at the end of [date] (YYYY-MM-DD), in home minor units. */
+@Serializable
+data class Bank(val amount: Long, val date: String)
 
 /**
  * One period's plan. Everything that changes spendable money is a [Line], so reservations and trip funds

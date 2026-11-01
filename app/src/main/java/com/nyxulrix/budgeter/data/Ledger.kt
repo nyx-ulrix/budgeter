@@ -57,6 +57,37 @@ fun AppState.savingsHistory(today: LocalDate = LocalDate.now()): List<MonthSavin
 fun AppState.savedToDate(key: String, today: LocalDate = LocalDate.now()): Long =
     savingsHistory(today).lastOrNull { it.key <= key }?.total ?: 0
 
+/**
+ * What a bill took out of my bank: all of it if I paid, less the shares already paid back to me;
+ * my share once I've paid back whoever paid; nothing before that.
+ */
+val Txn.cashOut: Long get() =
+    if (payer == ME) total - paidBack.filter { it != ME }.sumOf { shares[it] ?: 0 }
+    else if (ME in paidBack) myShare else 0
+
+/**
+ * What should be in the bank at the end of [today], or null before a balance is entered: the balance the bank showed
+ * at the end of its day, plus the income, extra money and fixed costs after it, less what expenses after it took out.
+ * Income and undated lines land on their period's first day, dated lines on the day they were added. Money set aside
+ * (savings, reservations, trip funds) is still in the bank. Date budget expenses are paid from the "my share" fixed cost.
+ */
+fun AppState.bankBalance(today: LocalDate = LocalDate.now()): Long? {
+    val bank = setup?.bank ?: return null
+    val date = today.toString()
+    fun after(d: String) = d > bank.date && d <= date
+    var total = bank.amount
+    var p = periodOf(LocalDate.parse(bank.date))
+    while (!p.start.isAfter(today)) {
+        val plan = planFor(p.key)
+        if (after(p.start.toString())) total += plan.income
+        for (l in plan.lines) {
+            if ((l.kind == LineKind.EXTRA || l.kind == LineKind.FIXED) && after(l.added ?: p.start.toString())) total += if (l.kind == LineKind.EXTRA) l.amount else -l.amount
+        }
+        p = p.next()
+    }
+    return total - liveTxns.filter { after(it.date) }.sumOf { it.cashOut }
+}
+
 fun Plan.total(kind: LineKind): Long = lines.filter { it.kind == kind }.sumOf { it.amount }
 
 /** Income + extra − fixed − savings − reservations − one-off trip set-asides (not monthly trip savings). */
