@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import com.nyxulrix.budgeter.R
 import com.nyxulrix.budgeter.data.editSetup
 import com.nyxulrix.budgeter.data.bankBalance
+import com.nyxulrix.budgeter.data.bankStart
 import com.nyxulrix.budgeter.data.Bank
 import com.nyxulrix.budgeter.core.plain
 import com.nyxulrix.budgeter.core.parseMoney
@@ -224,10 +225,10 @@ private fun BankRow(st: AppState) {
                 PixelButton(if (shown) "Hide" else "Show", { shown = !shown }, kind = Kind.SECONDARY)
             }
         }
-        if (balance == null) Small("Enter your bank balance once to check the app's tally against it.")
+        if (balance == null) Small("Enter what was in your bank before you started Budgeter to check every deduction against it.")
         if (shown && bank != null) {
-            Small("From your balance on ${bank.date}, plus income and extra money, less fixed costs and what you've paid since. Different from the bank? Something wasn't logged.")
-            PixelButton("Update balance", { editing = true }, kind = Kind.SECONDARY)
+            Small("${money(bank.amount, cur)} in the bank on ${bank.date}, plus income and extra money, less fixed costs and everything paid since. Different from the bank? Something wasn't logged.")
+            PixelButton("Starting balance", { editing = true }, kind = Kind.SECONDARY)
         }
     }
     if (editing) BankDialog(st) { editing = false }
@@ -236,16 +237,15 @@ private fun BankRow(st: AppState) {
 @Composable
 private fun BankDialog(st: AppState, onDismiss: () -> Unit) {
     val cur = st.currency
-    var text by remember { mutableStateOf(if (st.setup?.bank != null) plain(st.bankBalance() ?: 0, cur) else "") }
-    var date by remember { mutableStateOf(LocalDate.now()) }
+    val start = st.bankStart()
+    var text by remember { mutableStateOf(st.setup?.bank?.takeIf { it.date == start }?.let { plain(it.amount, cur) } ?: "") }
     val amount = parseMoney(text, cur)
-    PixelDialog("Bank balance", onDismiss) {
-        PixelField(text, { text = it }, "Balance the bank shows", keyboard = KeyboardType.Decimal,
+    PixelDialog("Starting balance", onDismiss) {
+        PixelField(text, { text = it }, "In the bank at the end of $start", keyboard = KeyboardType.Decimal,
             error = if (text.isNotBlank() && amount == null) "Not an amount" else null)
-        DateField("At the end of", date, { date = it })
-        Small("Log everything up to that day first. From then on the app adds income and takes off what you pay.")
+        Small("What you had before you started Budgeter. Every month since adds its income and extra money and takes off its fixed costs and everything you paid, so the total should match your bank.")
         PixelButton("Save", {
-            st.setup?.let { App.store.editSetup(it.copy(bank = Bank(amount!!, date.toString()))) }
+            st.setup?.let { App.store.editSetup(it.copy(bank = Bank(amount!!, start))) }
             onDismiss()
         }, enabled = amount != null && st.setup != null)
     }

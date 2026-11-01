@@ -1,4 +1,5 @@
 {
+  "2": "Sheets",
   "3": "Ledger.kt",
   "4": "Widgets.kt",
   "5": "MacrosScreen.kt",
@@ -13,6 +14,7 @@
   "22": "Ai.kt",
   "24": "ExpenseScreen.kt",
   "25": "Root.kt",
+  "26": "Theme.kt",
   "27": "ProfileScreen.kt",
   "28": "Store.kt",
   "29": "OpenRouterLogin.kt",
@@ -20,5 +22,9 @@
   "32": "Updater.kt",
   "33": "Receipt scanning flow",
   "37": "Kind",
-  "38": "Widget Picker Previews"
+  "38": "Widget Picker Previews",
+  "39": "Sheets.kt",
+  "40": "Context",
+  "41": "Records.kt",
+  "42": "SyncWorker"
 }

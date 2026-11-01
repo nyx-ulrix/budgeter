@@ -1,7 +1,6 @@
 {
   "0": "Small",
   "1": "AppState",
-  "2": "Sheets",
   "6": "Ai",
   "7": "DateMoney.kt",
   "8": "DateClient.kt",
@@ -11,7 +10,6 @@
   "18": "Turning on Google Sheets sync (setup guide)",
   "21": "Date budget shared with a partner (Firestore)",
   "23": "Release GitHub Actions workflow",
-  "26": "Countries.kt",
   "31": "gradlew",
   "34": "app/build.gradle.kts",
   "35": "build.gradle.kts",

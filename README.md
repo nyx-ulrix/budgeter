@@ -119,12 +119,12 @@ flowchart TD
 
 ### Savings
 
-A finished month saves everything earned that wasn't spent; an overspent month counts negative. Budget → Savings shows the total so far and, under "Past months", a bar and a row for each of the last 12 finished months with the running total. To check the tally against the bank, enter your real balance once on Home ("In the bank"); the app keeps it up to date from what you log and keeps it hidden until you tap Show.
+A finished month saves everything earned that wasn't spent; an overspent month counts negative. Budget → Savings shows the total so far and, under "Past months", a bar and a row for each of the last 12 finished months with the running total. To check the tally against the bank, enter on Home ("In the bank") what you had before you started Budgeter; the app adds everything you log since and keeps the figure hidden until you tap Show.
 
 ```mermaid
 flowchart LR
     m["Month saved =<br/>income + extra money − fixed costs<br/>− reservations − trip funds − my spending"] --> t["Saved to date = sum of finished months"]
-    bank["In the bank (Home, hidden until Show) =<br/>balance you entered for a day<br/>+ income, extra money − fixed costs after it<br/>− what later bills took out (less shares paid back)"]
+    bank["In the bank (Home, hidden until Show) =<br/>what you had before Budgeter<br/>+ income, extra money − fixed costs after it<br/>− what later bills took out (less shares paid back)"]
 ```
 
 ### Scanning a receipt

@@ -221,6 +221,7 @@ class LedgerTest {
             ),
         )
         assertNull(AppState(setup).bankBalance(LocalDate.of(2026, 10, 31)))
+        assertEquals("2026-09-30", st.bankStart())                                              // the day before the first budget month
         assertEquals(500_000L, st.bankBalance(LocalDate.of(2026, 10, 15)))
         assertEquals(500_000L + 5_000 - 2_000 - 6_000 - 6_000, st.bankBalance(LocalDate.of(2026, 10, 31)))
         assertEquals(491_000L + 300_000 - 100_000, st.bankBalance(LocalDate.of(2026, 11, 1)))   // November's plan lands on 1 Nov

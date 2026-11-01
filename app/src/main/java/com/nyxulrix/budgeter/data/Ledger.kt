@@ -65,6 +65,12 @@ val Txn.cashOut: Long get() =
     if (payer == ME) total - paidBack.filter { it != ME }.sumOf { shares[it] ?: 0 }
     else if (ME in paidBack) myShare else 0
 
+/** The day before the first budget month: a bank balance from then means everything logged since counts. */
+fun AppState.bankStart(): String {
+    val first = plans.keys.minOrNull()
+    return (if (first != null) Period.ofKey(first, startDay) else periodOf(LocalDate.now())).start.minusDays(1).toString()
+}
+
 /**
  * What should be in the bank at the end of [today], or null before a balance is entered: the balance the bank showed
  * at the end of its day, plus the income, extra money and fixed costs after it, less what expenses after it took out.
