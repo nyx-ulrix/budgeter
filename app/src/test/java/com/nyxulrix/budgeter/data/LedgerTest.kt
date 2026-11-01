@@ -228,4 +228,17 @@ class LedgerTest {
         val paid = st.copy(txns = st.txns.map { if (it.payer == "P2") it.copy(paidBack = setOf(ME)) else it })
         assertEquals(491_000L - 2_000, paid.bankBalance(LocalDate.of(2026, 10, 31)))           // my share leaves once I pay P2 back
     }
+
+    @Test fun aDateExpenseHasAtMostOneOverspendChargeReplacedOnEverySave() {
+        val old = Txn(date = "2026-10-31", total = 1_300, merchant = "sweet cheeks", note = OVERSPEND)   // saved before charges were linked
+        var st = AppState(setup, txns = listOf(old, Txn(date = "2026-10-31", total = 500, merchant = "sweet cheeks")))
+        assertEquals(listOf(old.id), st.overspendsFor("d1", "2026-10-31", "sweet cheeks").map { it.id })   // by day and name; the normal expense isn't one
+        val twins = listOf(com.nyxulrix.budgeter.core.Tx("d1", "expense", 1, "sweet cheeks", "2026-10-31", "me"), com.nyxulrix.budgeter.core.Tx("d2", "expense", 1, "sweet cheeks", "2026-10-31", "me"))
+        assertEquals(emptyList<Txn>(), st.overspendsFor("d1", "2026-10-31", "sweet cheeks", twins))      // same day and name twice: neither's
+        st = st.withOverspend("d1", "2026-10-31", "sweet cheeks", 700, "Food", 1)
+        assertEquals(listOf(700L to "d1"), st.overspendsFor("d1", "2026-10-31", "sweet cheeks").map { it.total to it.dateId })   // replaced, now linked
+        val dinner = com.nyxulrix.budgeter.core.Tx("d1", "expense", 7_000, "sweet cheeks", "2026-10-31", "me")
+        st = st.withOverspend("d1", "2026-11-02", "sweet cheeks", 0, "Food", 1, old = dinner)          // moved to a month whose fund covers it
+        assertEquals(emptyList<Txn>(), st.overspendsFor("d1", "2026-11-02", "sweet cheeks") + st.overspendsFor("d1", "2026-10-31", "sweet cheeks"))
+    }
 }

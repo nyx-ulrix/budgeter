@@ -180,6 +180,28 @@ fun Store.deleteTrip(id: String) = update { st ->
 }
 
 /** Ticks or unticks that [who] has paid their share of a split bill. */
+/**
+ * Sets date expense [id]'s overspend charge in my budget to [amount] (none for 0): its earlier charges, found as [old]
+ * before an edit renamed or moved it, are replaced by one charge linked to it. Each save works it out afresh.
+ */
+fun AppState.withOverspend(
+    id: String, date: String, note: String, amount: Long, category: String, now: Long,
+    old: com.nyxulrix.budgeter.core.Tx? = null, dates: List<com.nyxulrix.budgeter.core.Tx> = emptyList(),
+): AppState {
+    val before = (if (old != null) withoutOverspends(old.id, old.date, old.note, dates) else this).withoutOverspends(id, date, note, dates)
+    return if (amount > 0) before.withTxn(Txn(date = date, total = amount, category = category, merchant = note, note = OVERSPEND, dateId = id), now) else before
+}
+
+/** Removes date expense [id]'s overspend charges from my budget. */
+fun AppState.withoutOverspends(id: String, date: String, note: String, dates: List<com.nyxulrix.budgeter.core.Tx> = emptyList()): AppState =
+    overspendsFor(id, date, note, dates).fold(this) { s, t -> s.withoutTxn(t.id) }
+
+fun Store.chargeOverspend(id: String, date: String, note: String, amount: Long, category: String, old: com.nyxulrix.budgeter.core.Tx?, dates: List<com.nyxulrix.budgeter.core.Tx>) =
+    update { it.withOverspend(id, date, note, amount, category, System.currentTimeMillis(), old, dates) }
+
+fun Store.dropOverspends(id: String, date: String, note: String, dates: List<com.nyxulrix.budgeter.core.Tx>) =
+    update { it.withoutOverspends(id, date, note, dates) }
+
 fun Store.togglePaidBack(txnId: String, who: String) = update { st ->
     st.copy(txns = st.txns.map { t ->
         if (t.id != txnId) t else t.copy(paidBack = if (who in t.paidBack) t.paidBack - who else t.paidBack + who, updatedAt = System.currentTimeMillis())

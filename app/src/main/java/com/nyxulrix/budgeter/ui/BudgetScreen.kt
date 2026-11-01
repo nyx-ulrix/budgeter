@@ -239,8 +239,10 @@ private fun IncomeWindow(key: String, plan: Plan, cur: String) {
 
 @Composable
 private fun LinesWindow(title: String, kind: LineKind, key: String, plan: Plan, cur: String, hint: String) {
-    FoldWindow(title) {
+    val total = plan.total(kind)
+    FoldWindow(if (total > 0) "$title · ${money(total, cur)}" else title, key = title) {
         LineEditor(kind, key, plan, cur)
+        if (total > 0) KeyValue("Total in $key", money(total, cur))
         Small(hint)
     }
 }

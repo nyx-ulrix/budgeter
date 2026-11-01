@@ -118,6 +118,7 @@ data class Txn(
     val tripId: String? = null,
     val foreign: Foreign? = null,
     val plannedId: String? = null,
+    val dateId: String? = null,                        // a date budget overspend charge: the date expense it belongs to
     val fromReserve: Long = 0,                         // already deducted earlier as a reservation
     val updatedAt: Long = System.currentTimeMillis(),
     val syncedAt: Long? = null,

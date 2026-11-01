@@ -332,6 +332,7 @@ object DateClient {
         val id = (doc as? JsonObject)?.get("name").str()?.substringAfterLast('/') ?: throw Exception("The date budget didn't confirm the save. Try again.")
         show(Tx(id, d.kind, d.amount, d.note, d.date, s.uid))   // in the list straight away, whatever the reload does
         refresh()
+        id
     }
 
     /** Puts [t] into the loaded entries now (the next reload brings the stored copy). */

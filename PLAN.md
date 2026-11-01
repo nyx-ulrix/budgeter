@@ -285,3 +285,14 @@ The web app ([budgeter-web](https://github.com/nyx-ulrix/budgeter-web), React Na
 | Starting balance | "In the bank" asks only for what was in the bank before you started Budgeter. It's stored as `setup.bank` dated `bankStart()`, the day before the first budget month, so every month's income, extra money, fixed costs and payments count and the figure always checks every deduction since the start. The Home row's button is "Starting balance". A balance dated another day (from 1.11.0) still works until it's saved again. |
 | Jia En's data | Set from the sheet on 2026-11-01: `bank = {amount: 0, date: "2026-09-30"}` in the `_sync` setup record. With 0 before Budgeter the app's tally is SGD 1,085.64 (Oct net 259.23 + Nov so far 826.41, counting November's income, "hilite" and fixed costs from 1 Nov). Enter the real pre-October balance as the starting balance to compare against the bank. |
 
+## 18. Date overspend charged once, history shows it once, fixed cost totals (v1.13.0, 2026-11-01)
+
+| Area | Now |
+|---|---|
+| One charge per date expense | An overspend charge in my budget carries `dateId` (the date expense's id; synced). Every save of a date expense removes its earlier cover top-ups ("Over budget: <note>", same day: `coverTopups`) and its charges (`overspendsFor`), works the cover out afresh without them (`dateCover`), and adds back one top-up and one linked charge (`chargeOverspend`). So re-saving never charges twice, lowering refunds, and moving or renaming leaves nothing behind. Moving it to my own budget or deleting it removes its top-ups and charge too. Older unlinked charges are matched by day and name, but only when no other date expense has that day and name. |
+| Save once | The Save button shows "Saving…" and ignores taps while a date expense saves over the network. |
+| History | Txns shows each date expense once: its charge ("SGD x over, from your budget") is on its row; the charge and the cover top-up aren't listed separately while the date budget is loaded. |
+| Fixed costs total | The Fixed costs and Extra money folds show the month's total in the title and under the list. |
+| Audit (Fable 5.1) | Both apps give the same numbers on the real data. Fixed from it: lowering, moving, renaming or moving out a date expense left old top-ups and charges. Open design questions: the bank deducts the SGD 150 "my share" fixed cost plus charges, but if I pay every date and my partner's share doesn't reach my bank, the real outflow is the full date spending; "date init" SGD 92.10 counts as money in. Carried-over fixed costs land on the period's first day (`planFor` drops `added`), so the bank check matches once that month's bills have cleared. Two date expenses dated 2023-10-16 and 2024-10-16 (HISTRANGER, mistyped years) lower DateBudget's all-time balance only. |
+| Data fix 2026-11-01 | Three duplicate SGD 13 "sweet cheeks" overspend charges (re-saved 09:41) were deleted through the `_sync` tab. |
+

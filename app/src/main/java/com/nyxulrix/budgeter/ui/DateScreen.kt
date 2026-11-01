@@ -45,6 +45,7 @@ import com.nyxulrix.budgeter.core.parseMoney
 import com.nyxulrix.budgeter.core.plain
 import com.nyxulrix.budgeter.core.totals
 import com.nyxulrix.budgeter.core.withBudget
+import com.nyxulrix.budgeter.data.overspendsFor
 import com.nyxulrix.budgeter.data.AppState
 import com.nyxulrix.budgeter.data.Line
 import com.nyxulrix.budgeter.data.LineKind
@@ -95,14 +96,20 @@ fun DateRefresh() {
 /** Each month stands alone: what was added in [p] minus what was spent in it. Nothing carries over between months. */
 fun monthLeft(all: List<Tx>, p: com.nyxulrix.budgeter.core.Period) = totals(all.filter { it.date >= p.start.toString() && it.date < p.end.toString() }).left
 
+/** The fund top-ups that covered expense [e]'s overspend ("Over budget: <note>", same day). */
+fun coverTopups(all: List<Tx>, e: Tx): List<Tx> = all.filter { it.kind == "topup" && it.date == e.date && it.note == "Over budget: ${e.note}".take(100) }
+
 /**
- * How far saving a date expense of [amount] on [date] (replacing [old] when editing) takes that month's fund below zero.
- * Months don't carry over, so only the expense's own month counts, as the fund shows it.
+ * The cover top-up a date expense of [amount] on [date] needs: how far it takes that month's fund below zero. Months
+ * don't carry over, so only its own month counts, as the fund shows it. When editing [old], its earlier cover top-ups
+ * are left out, since saving replaces them: an edit that lowers, moves or renames it gets the right cover too.
  */
 fun AppState.dateCover(all: List<Tx>, date: LocalDate, amount: Long, old: Tx? = null): Long {
     val p = periodOf(date)
+    val replaced = old?.let { o -> coverTopups(all, o).map { it.id }.toSet() }.orEmpty()
+    val rest = all.filter { it.id !in replaced }
     val inMonth = old != null && old.date >= p.start.toString() && old.date < p.end.toString()
-    return overdrawn(monthLeft(all, p), amount, if (inMonth) old!!.amount else 0)
+    return overdrawn(monthLeft(rest, p), amount, if (inMonth) old!!.amount else 0)
 }
 
 /** A titled part of the Date budget fold. */
@@ -163,6 +170,7 @@ fun DateTxnRow(st: AppState, tx: Tx) {
     var editing by remember { mutableStateOf(false) }
     val expense = tx.kind == "expense"
     val who = ds.budget?.names?.get(tx.by) ?: if (tx.by.isNotEmpty()) "Partner" else "Shared"
+    val charged = if (expense) st.overspendsFor(tx.id, tx.date, tx.note, ds.txs.filter { it.kind == "expense" }).sumOf { it.total } else 0
     Row(
         Modifier.fillMaxWidth().heightIn(min = 48.dp)
             .clickable(role = Role.Button, onClickLabel = "Edit") { if (expense) nav.go(Screen.Expense(dateId = tx.id)) else editing = true }
@@ -172,7 +180,7 @@ fun DateTxnRow(st: AppState, tx: Tx) {
         Glyph(Glyphs.heart, payerColor(ds.budget?.members, tx.by), 18.dp)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Body(tx.note.ifEmpty { if (expense) "Date" else "Top up" })
-            Small("${if (expense) "Date budget" else "Top up"} · $who")
+            Small("${if (expense) "Date budget" else "Top up"} · $who" + if (charged > 0) " · ${money(charged, cur)} over, from your budget" else "")
         }
         Text((if (expense) "" else "+") + money(tx.amount, cur), style = Type.body, color = if (expense) Px.brown else Px.green)
     }

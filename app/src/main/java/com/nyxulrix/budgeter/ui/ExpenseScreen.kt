@@ -42,6 +42,8 @@ import com.nyxulrix.budgeter.core.money
 import com.nyxulrix.budgeter.core.parseMoney
 import com.nyxulrix.budgeter.core.plain
 import com.nyxulrix.budgeter.core.split
+import com.nyxulrix.budgeter.data.dropOverspends
+import com.nyxulrix.budgeter.data.chargeOverspend
 import com.nyxulrix.budgeter.data.AppState
 import com.nyxulrix.budgeter.data.Foreign
 import com.nyxulrix.budgeter.data.ME
@@ -226,21 +228,34 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
 
     var mealFor by remember { mutableStateOf<Meal?>(null) }   // "Save & add to macros": the meal to fill in after saving
 
+    var saving by remember { mutableStateOf(false) }   // a date expense saves over the network: one tap, one save
+
     /** Saves; then [then] gets the saved expense's id (by default, go back). */
     fun save(then: (String) -> Unit = { nav.back() }) {
-        if (d.tripId == DATE) {   // the shared date fund, not my budget; moving a normal expense there takes it out of my budget
+        if (d.tripId == DATE) {
+            // The shared date fund, not my budget; moving a normal expense there takes it out of my budget.
+            if (saving) return
+            saving = true
             val draft = TxDraft("expense", totalHome, (d.merchant.trim().ifEmpty { d.note.trim() }.ifEmpty { "Date" }).take(100), d.date.toString())
             // What this expense takes the fund below zero by, I paid: it tops the fund back up from my own budget.
             val cover = st.dateCover(ds.all, d.date, totalHome, dateTx)
+            val dates = ds.txs.filter { it.kind == "expense" }
             scope.launch {
                 runCatching {
-                    if (dateTx != null) DateClient.updateTx(dateTx.id, draft) else DateClient.addTx(draft)
+                    // Saving replaces this expense's earlier cover top-ups; the cover is worked out afresh above.
+                    if (dateTx != null) coverTopups(ds.all, dateTx).forEach { DateClient.deleteTx(it.id) }
+                    val id = if (dateTx != null) { DateClient.updateTx(dateTx.id, draft); dateTx.id } else DateClient.addTx(draft)
                     if (cover > 0) DateClient.addTx(TxDraft("topup", cover, "Over budget: ${draft.note}".take(100), draft.date))
-                }.onSuccess {
+                    id
+                }.onSuccess { id ->
                     existing?.let { App.store.deleteTxn(it.id) }
-                    if (cover > 0) App.store.saveTxn(Txn(date = draft.date, total = cover, category = d.category, merchant = draft.note, note = "Date budget overspend"))
+                    // The charge in my budget matches the cover: one, replaced on every save.
+                    App.store.chargeOverspend(id, draft.date, draft.note, cover, d.category, dateTx, dates)
                     nav.back()
-                }.onFailure { if (it !is kotlinx.coroutines.CancellationException) Toast.makeText(ctx, it.message, Toast.LENGTH_LONG).show() }
+                }.onFailure {
+                    saving = false
+                    if (it !is kotlinx.coroutines.CancellationException) Toast.makeText(ctx, it.message, Toast.LENGTH_LONG).show()
+                }
             }
             return
         }
@@ -278,7 +293,11 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
             syncedTab = existing?.syncedTab,
         )
         App.store.saveTxn(t)
-        if (dateTx != null) scope.launch { runCatching { DateClient.deleteTx(dateTx.id) } }   // moved out of the date budget into my own
+        if (dateTx != null) {   // moved out of the date budget into my own: its cover top-ups and overspend charge go too
+            val covers = coverTopups(ds.all, dateTx)
+            scope.launch { runCatching { (listOf(dateTx) + covers).forEach { DateClient.deleteTx(it.id) } } }
+            App.store.dropOverspends(dateTx.id, dateTx.date, dateTx.note, ds.txs.filter { it.kind == "expense" })
+        }
         then(t.id)
     }
 
@@ -411,7 +430,7 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
         }
 
         errors.forEach { Text("! $it", style = Type.small, color = Px.red) }
-        PixelButton(if (editing) "Save changes" else "Save expense", { save() }, Modifier.fillMaxWidth(), enabled = errors.isEmpty())
+        PixelButton(if (saving) "Saving…" else if (editing) "Save changes" else "Save expense", { save() }, Modifier.fillMaxWidth(), enabled = errors.isEmpty() && !saving)
         // A meal (Food, not groceries) can go straight to Macros: save, then fill in what was eaten.
         val food = d.category == MEAL_CATEGORY || d.items.any { it.category == MEAL_CATEGORY }
         if (d.tripId != DATE && food && st.meals.none { existing != null && it.txnId == existing.id }) PixelButton("Save & add to macros", {
@@ -421,7 +440,15 @@ fun ExpenseScreen(st: AppState, s: Screen.Expense) {
             }
         }, Modifier.fillMaxWidth(), kind = Kind.SECONDARY, enabled = errors.isEmpty(), glyph = Glyphs.food)
         if (existing != null) PixelButton("Delete", { App.store.deleteTxn(existing.id); nav.back() }, Modifier.fillMaxWidth(), kind = Kind.DANGER)
-        if (dateTx != null) PixelButton("Delete", { scope.launch { runCatching { DateClient.deleteTx(dateTx.id) } }; nav.back() }, Modifier.fillMaxWidth(), kind = Kind.DANGER)
+        if (dateTx != null) PixelButton("Delete", {
+            // The fund's cover top-ups and my overspend charge go with the expense.
+            val covers = coverTopups(ds.all, dateTx)
+            scope.launch {
+                runCatching { (listOf(dateTx) + covers).forEach { DateClient.deleteTx(it.id) } }
+                    .onSuccess { App.store.dropOverspends(dateTx.id, dateTx.date, dateTx.note, ds.txs.filter { it.kind == "expense" }) }
+            }
+            nav.back()
+        }, Modifier.fillMaxWidth(), kind = Kind.DANGER)
     }
 
     mealFor?.let { MealDialog(st, it) { mealFor = null; nav.back() } }

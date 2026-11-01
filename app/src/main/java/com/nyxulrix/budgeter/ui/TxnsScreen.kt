@@ -24,6 +24,7 @@ import com.nyxulrix.budgeter.core.money
 import com.nyxulrix.budgeter.core.Tx
 import com.nyxulrix.budgeter.date.DateClient
 import com.nyxulrix.budgeter.date.Phase
+import com.nyxulrix.budgeter.data.OVERSPEND
 import com.nyxulrix.budgeter.data.AppState
 import com.nyxulrix.budgeter.data.Txn
 import com.nyxulrix.budgeter.data.ME
@@ -43,17 +44,20 @@ fun TxnsScreen(st: AppState) {
     var query by rememberSaveable { mutableStateOf("") }
     var scope by rememberSaveable { mutableStateOf("All") }
     val p = Period.ofKey(key, st.startDay)
+    val ds by DateClient.state.collectAsState()
     val list = st.liveTxns
         .filter { LocalDate.parse(it.date) in p }
+        .filter { !(ds.phase == Phase.Ready && it.note == OVERSPEND) }   // shown on its date expense's row
         .filter { category == null || it.category == category || it.items.any { i -> i.category == category } }
         .filter { query.isBlank() || (it.merchant + " " + it.note + " " + it.items.joinToString { i -> i.name }).contains(query, true) }
         .filter { when (scope) { "Budget" -> it.tripId == null; "Trips" -> it.tripId != null; "Split" -> it.people > 1 || it.shares.size > 1; "Dates" -> false; else -> true } }
         .sortedByDescending { it.date + it.updatedAt.toString().padStart(15, '0') }
     // Date budget entries (shared fund) join the list. Total = my share of each expense plus date spending (not top-ups).
-    val ds by DateClient.state.collectAsState()
     DateRefresh()
+    // Each date expense shows once: its overspend charge (in my budget) and the fund's cover top-up are on its row.
+    val covers = if (ds.phase == Phase.Ready) ds.txs.filter { it.kind == "expense" }.flatMap { coverTopups(ds.txs, it) }.map { it.id }.toSet() else emptySet()
     val dates = if (ds.phase != Phase.Ready || category != null || scope !in listOf("All", "Dates")) emptyList()
-        else ds.txs.filter { runCatching { LocalDate.parse(it.date) in p }.getOrDefault(false) && (query.isBlank() || it.note.contains(query, true)) }
+        else ds.txs.filter { it.id !in covers && runCatching { LocalDate.parse(it.date) in p }.getOrDefault(false) && (query.isBlank() || it.note.contains(query, true)) }
     val rows: List<Pair<String, Any>> = (list.map { it.date to it } + dates.map { it.date to it }).sortedByDescending { it.first }
 
     Page {

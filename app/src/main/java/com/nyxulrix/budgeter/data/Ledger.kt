@@ -20,6 +20,18 @@ fun AppState.periodOf(date: LocalDate): Period = periodOf(date, startDay)
 
 val AppState.liveTxns: List<Txn> get() = txns.filter { !it.deleted }
 
+/** The note on my budget's charge for the part of a date expense the shared fund couldn't cover. */
+const val OVERSPEND = "Date budget overspend"
+
+/**
+ * My overspend charges for the date expense [id] on [date] named [note]: linked by its id, or (older, unlinked ones)
+ * by its day and name, but only when no other expense in [dates] has the same day and name.
+ */
+fun AppState.overspendsFor(id: String, date: String, note: String, dates: List<com.nyxulrix.budgeter.core.Tx> = emptyList()): List<Txn> {
+    val unique = dates.none { it.id != id && it.date == date && it.note == note }
+    return liveTxns.filter { it.note == OVERSPEND && (if (it.dateId != null) it.dateId == id else unique && it.date == date && it.merchant == note) }
+}
+
 /**
  * The plan for a period. A period nobody has edited yet inherits the latest earlier plan's income, fixed costs,
  * savings, caps and monthly budget (not extras, reservations or trip funds, which are one-offs).
