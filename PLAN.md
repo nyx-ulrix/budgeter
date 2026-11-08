@@ -296,3 +296,12 @@ The web app ([budgeter-web](https://github.com/nyx-ulrix/budgeter-web), React Na
 | Audit (Fable 5.1) | Both apps give the same numbers on the real data. Fixed from it: lowering, moving, renaming or moving out a date expense left old top-ups and charges. Open design questions: the bank deducts the SGD 150 "my share" fixed cost plus charges, but if I pay every date and my partner's share doesn't reach my bank, the real outflow is the full date spending; "date init" SGD 92.10 counts as money in. Carried-over fixed costs land on the period's first day (`planFor` drops `added`), so the bank check matches once that month's bills have cleared. Two date expenses dated 2023-10-16 and 2024-10-16 (HISTRANGER, mistyped years) lower DateBudget's all-time balance only. |
 | Data fix 2026-11-01 | Three duplicate SGD 13 "sweet cheeks" overspend charges (re-saved 09:41) were deleted through the `_sync` tab. |
 
+## 19. Savings in the bank, saved this month, daily amounts (v1.14.0, 2026-11-08)
+
+| Area | Now |
+|---|---|
+| Savings in the bank | Home → "In the bank" has a "Savings in it" line under it, hidden with the balance: `bankSavings()` = the starting balance + what every finished month saved (`savedToDate`). The rest of the balance is this month's money and what's set aside. |
+| Saved this month | Budget → Spendable.exe shows "Saved this month" (a finished month) or "Saved so far" (this month: what it saves if nothing more is spent) next to the spendable figure: `monthSaved`. On a phone it wraps under it. |
+| Daily amounts | Spendable.exe: a finished month shows what it spent a day on average (`dailyAverage`: budget spending ÷ the month's days); this month shows what can be spent a day for the days left, today included (`perDayLeft`: spendable − spent, ÷ days left). Past months rows show each month's average a day. Both round down to whole cents, the same on both apps. |
+| Taste audit (UI) | design-taste-frontend app-screen checks, kept to the app's pixel style. Fixed: a fold's total now closes its list (above the add row); a finished month says "Spent", not "Spent so far"; the bank note on Home is one short line. |
+

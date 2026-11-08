@@ -148,6 +148,8 @@ class LedgerTest {
         assertEquals(150_000L, st.spendable("2026-10"))      // budget carries over
         assertEquals(80_000L, st.savedToDate("2026-10", LocalDate.of(2026, 10, 15)))  // only finished months
         assertEquals(0L, st.savedToDate("2026-09", LocalDate.of(2026, 9, 20)))
+        assertEquals(120_000L / 30, st.dailyAverage("2026-09"))                              // 120k over September's 30 days
+        assertEquals((150_000L - 120_000) / 10, st.perDayLeft(LocalDate.of(2026, 9, 21)))     // 30k left over 21–30 Sep
         assertEquals(                                        // Oct inherits Sep's plan and spends nothing
             listOf(MonthSaving("2026-09", 80_000, 80_000), MonthSaving("2026-10", 200_000, 280_000)),
             st.savingsHistory(LocalDate.of(2026, 11, 15)),
@@ -222,6 +224,10 @@ class LedgerTest {
         )
         assertNull(AppState(setup).bankBalance(LocalDate.of(2026, 10, 31)))
         assertEquals("2026-09-30", st.bankStart())                                              // the day before the first budget month
+        assertNull(AppState(setup).bankSavings(LocalDate.of(2026, 11, 15)))
+        val started = st.copy(setup = st.setup!!.copy(bank = Bank(100_000, "2026-09-30")))
+        assertEquals(100_000L + started.monthSaved("2026-10"), started.bankSavings(LocalDate.of(2026, 11, 15)))   // starting balance + what October saved
+        assertEquals(100_000L, started.bankSavings(LocalDate.of(2026, 10, 20)))                                  // October hasn't ended: none of it yet
         assertEquals(500_000L, st.bankBalance(LocalDate.of(2026, 10, 15)))
         assertEquals(500_000L + 5_000 - 2_000 - 6_000 - 6_000, st.bankBalance(LocalDate.of(2026, 10, 31)))
         assertEquals(491_000L + 300_000 - 100_000, st.bankBalance(LocalDate.of(2026, 11, 1)))   // November's plan lands on 1 Nov

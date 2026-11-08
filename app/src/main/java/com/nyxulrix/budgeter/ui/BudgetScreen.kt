@@ -3,6 +3,8 @@ package com.nyxulrix.budgeter.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Row
@@ -48,6 +50,8 @@ import com.nyxulrix.budgeter.data.snapshot
 import com.nyxulrix.budgeter.data.spendable
 import com.nyxulrix.budgeter.data.available
 import com.nyxulrix.budgeter.data.monthSaved
+import com.nyxulrix.budgeter.data.perDayLeft
+import com.nyxulrix.budgeter.data.dailyAverage
 import com.nyxulrix.budgeter.data.savedToDate
 import com.nyxulrix.budgeter.data.savingsHistory
 import com.nyxulrix.budgeter.data.tripMonthlyTotal
@@ -172,7 +176,7 @@ private fun PastMonths(st: AppState, upTo: String, cur: String) {
                 Body(monthName(m.key), Modifier.weight(1f))
                 androidx.compose.foundation.layout.Column(horizontalAlignment = Alignment.End) {
                     Text((if (m.saved > 0) "+" else "") + money(m.saved, cur), style = Type.body, color = if (m.saved < 0) Px.red else Px.green)
-                    Small("Total ${money(m.total, cur)}")
+                    Small("${money(st.dailyAverage(m.key), cur)}/day spent · total ${money(m.total, cur)}")
                 }
             }
         }
@@ -183,7 +187,8 @@ private fun PastMonths(st: AppState, upTo: String, cur: String) {
 private fun Column1(modifier: Modifier = Modifier, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) =
     androidx.compose.foundation.layout.Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp), content = content)
 
-/** The monthly budget setting. Shows only what's spendable; the earnings behind it are in the windows below. */
+/** The monthly budget setting. Shows what's spendable and what the month has saved; the earnings behind it are in the windows below. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun BudgetWindow(st: AppState, key: String, plan: Plan, cur: String) {
     val p = Period.ofKey(key, st.startDay)
@@ -193,13 +198,26 @@ private fun BudgetWindow(st: AppState, key: String, plan: Plan, cur: String) {
     var text by remember(key, plan.budget) { mutableStateOf(plan.budget?.let { plain(it, cur) } ?: "") }
     val v = if (text.isBlank()) null else parseMoney(text, cur)
     Window("Spendable.exe", header = when { spent > spendable + plan.savingsTarget -> Px.red; spent > spendable -> Px.yellow; else -> Px.orange }) {
-        Label("Spendable this month")
-        Text(money(spendable, cur), style = Type.hero, color = if (spendable < 0 || spent > spendable) Px.red else Px.brown)
-        Small("Spent so far ${money(spent, cur)}" + when {
+        val saved = st.monthSaved(key)   // what the month saves if nothing more is spent
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp), itemVerticalAlignment = Alignment.Bottom) {
+            Column1 {
+                Label("Spendable this month")
+                Text(money(spendable, cur), style = Type.hero, color = if (spendable < 0 || spent > spendable) Px.red else Px.brown)
+            }
+            Column1 {
+                Label(if (!p.end.isAfter(LocalDate.now())) "Saved this month" else "Saved so far")
+                Text(money(saved, cur), style = Type.number, color = if (saved < 0) Px.red else Px.green)
+            }
+        }
+        Small("${if (!p.end.isAfter(LocalDate.now())) "Spent" else "Spent so far"} ${money(spent, cur)}" + when {
             spent > spendable + plan.savingsTarget -> " · over by ${money(spent - spendable - plan.savingsTarget, cur)}"
             spent > spendable -> " · ${money(spent - spendable, cur)} into savings"
             else -> ""
         })
+        // A finished month: what it averaged a day. This month: what's left a day.
+        val today = LocalDate.now()
+        if (!p.end.isAfter(today)) Small("Spent ${money(st.dailyAverage(key), cur)} a day on average")
+        else if (!p.start.isAfter(today)) Small("${money(st.perDayLeft(), cur)} a day for the ${ChronoUnit.DAYS.between(today, p.end)} days left, today included")
         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PixelField(text, { text = it }, "Monthly budget (what you plan to spend)", Modifier.weight(1f), keyboard = KeyboardType.Decimal,
                 placeholder = plain(available.coerceAtLeast(0), cur), error = if (text.isNotBlank() && v == null) "Not a number" else null)
@@ -242,7 +260,6 @@ private fun LinesWindow(title: String, kind: LineKind, key: String, plan: Plan, 
     val total = plan.total(kind)
     FoldWindow(if (total > 0) "$title · ${money(total, cur)}" else title, key = title) {
         LineEditor(kind, key, plan, cur)
-        if (total > 0) KeyValue("Total in $key", money(total, cur))
         Small(hint)
     }
 }
@@ -257,6 +274,7 @@ private fun LineEditor(kind: LineKind, key: String, plan: Plan, cur: String) {
             CloseButton { App.store.removeLine(key, l.id) }
         }
     }
+    if (plan.total(kind) > 0) KeyValue("Total in $key", money(plan.total(kind), cur))
     var name by remember { mutableStateOf("") }
     var amount by remember { mutableStateOf("") }
     val v = parseMoney(amount, cur)

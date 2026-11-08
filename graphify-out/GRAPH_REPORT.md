@@ -1,17 +1,17 @@
-# Graph Report - Budgeter  (2026-11-01)
+# Graph Report - Budgeter  (2026-11-08)
 
 ## Corpus Check
-- 61 files · ~56,108 words
+- 61 files · ~56,672 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 25 file(s) not represented in the graph (top: .xml 10, (none) 4, .ttf 4)
 
 ## Summary
-- 1007 nodes · 3075 edges · 47 communities (29 shown, 18 thin omitted)
+- 1010 nodes · 3090 edges · 41 communities (23 shown, 18 thin omitted)
 - Extraction: 87% EXTRACTED · 13% INFERRED · 0% AMBIGUOUS · INFERRED: 401 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `1782b560`
+- Built from commit: `d272c320`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -23,38 +23,34 @@
 - Widgets.kt
 - MacrosScreen.kt
 - Ai
-- DateMoney.kt
+- App
 - DateClient.kt
 - Theme.kt
 - Budgeter README
 - Receipt Pipeline
-- ProfileScreen.kt
+- TxnsScreen.kt
 - plain
 - env
 - Budgeter graphics list
 - Daily budget replay with leftovers
 - Turning on Google Sheets sync (setup guide)
+- MonthBar.kt
 - DateScreen.kt
 - Date budget shared with a partner (Firestore)
-- Ai.kt
+- Art
 - Release GitHub Actions workflow
-- ExpenseScreen.kt
+- Context
 - Root.kt
 - Theme.kt
 - Scanner.kt
 - OpenRouterLogin.kt
 - Budgeter Web (React Native for Web)
-- Updater.kt
+- Ai.kt
 - Receipt scanning flow
 - Kind
 - Widget Picker Previews
-- MonthBar
-- Records.kt
-- SyncWorker
-- Phase
-- currency
-- Every
-- MacrosTest.kt
+- Sheets.kt
+- WidgetArt.kt
 
 ## God Nodes (most connected - your core abstractions)
 1. `AppState` - 95 edges
@@ -88,43 +84,39 @@
 - **Release pipeline (tag, signed build, GitHub release, in-app update)** — github_workflows_release_workflow, github_workflows_release_signing_key_step, github_workflows_release_test_and_build, github_workflows_release_publish_step, readme_github_releases [EXTRACTED 0.95]
 - **Date budget stack (apps, Firebase Auth login, Firestore)** — readme_date_budget, readme_one_google_login, readme_firebase_project, readme_datebudget_site, plan_date_overspend [INFERRED 0.85]
 
-## Communities (47 total, 18 thin omitted)
+## Communities (41 total, 18 thin omitted)
 
 ### Community 0 - "Small"
 Cohesion: 0.09
-Nodes (65): convert(), digits(), money(), parseMoney(), plain(), countryName(), currencyOf(), tripSpent() (+57 more)
+Nodes (61): money(), Country, countryName(), currencyOf(), detectCountry(), dailyImpact(), CameraScreen(), ReceiptGuides() (+53 more)
 
 ### Community 1 - "AppState"
-Cohesion: 0.10
-Nodes (27): SplitMethod, EQUAL, EXACT, ITEMS, PERCENT, SHARES, AppState, Bank (+19 more)
+Cohesion: 0.08
+Nodes (34): unloggedFood(), Categories, mergeRemote(), recordObjects(), Remote, stampedSince(), toUpload(), withRecord() (+26 more)
 
 ### Community 3 - "BudgetScreen.kt"
 Cohesion: 0.06
-Nodes (75): Day, DaySpend, Pace, ON_TRACK, OVER, SLIGHTLY_OVER, Period, periodOf() (+67 more)
+Nodes (76): Day, DaySpend, Pace, ON_TRACK, OVER, SLIGHTLY_OVER, Period, periodOf() (+68 more)
 
 ### Community 4 - "Widgets.kt"
-Cohesion: 0.07
-Nodes (11): App, Store, BarsReceiver, BarsWidget, MacrosReceiver, MacrosWidget, MidnightWorker, open() (+3 more)
+Cohesion: 0.10
+Nodes (7): BarsReceiver, BarsWidget, MacrosReceiver, MacrosWidget, MidnightWorker, SpendReceiver, SpendWidget
 
 ### Community 5 - "MacrosScreen.kt"
-Cohesion: 0.09
-Nodes (31): Food, FoodHit, Portion, fmtMacro(), Macro, macroReport(), MacroStat, onTarget() (+23 more)
+Cohesion: 0.11
+Nodes (29): Food, FoodHit, Portion, fmtMacro(), Macro, macroReport(), MacroStat, onTarget() (+21 more)
 
 ### Community 6 - "Ai"
-Cohesion: 0.20
+Cohesion: 0.19
 Nodes (5): Ai, Dto, ItemDto, Provider, Secrets
 
-### Community 7 - "DateMoney.kt"
-Cohesion: 0.23
-Nodes (12): budgetRows(), Contributions, creditDate(), currentStep(), isDate(), periodStart(), Step, steps() (+4 more)
-
 ### Community 8 - "DateClient.kt"
-Cohesion: 0.17
-Nodes (17): api(), dec(), decFields(), detached(), enc(), fields(), http(), long() (+9 more)
+Cohesion: 0.13
+Nodes (20): api(), Budget, DateState, dec(), decFields(), detached(), enc(), fields() (+12 more)
 
 ### Community 9 - "Theme.kt"
-Cohesion: 0.09
-Nodes (10): MainActivity, Tab, BUDGET, HOME, MACROS, PROFILE, TXNS, Release (+2 more)
+Cohesion: 0.08
+Nodes (15): Phase, Loading, NoBudget, Ready, SignedOut, MainActivity, Tab, BUDGET (+7 more)
 
 ### Community 10 - "Budgeter README"
 Cohesion: 0.22
@@ -135,8 +127,8 @@ Cohesion: 0.27
 Nodes (8): AI Provider Presets (OpenAI-compatible chat/completions), Expense Entry Modes, Keystore-Encrypted AI Keys, ML Kit On-Device Text Recognition, OpenRouter OAuth PKCE Sign-In, ParsedReceipt Model, Receipt Pipeline, Rule-Based Receipt Parser (ReceiptText.kt)
 
 ### Community 14 - "plain"
-Cohesion: 0.08
-Nodes (18): ParsedReceipt, receiptDate(), ReceiptItem, ReceiptText, Seg, Draft, draftFrom(), ItemDraft (+10 more)
+Cohesion: 0.06
+Nodes (37): allocate(), convert(), digits(), parseMoney(), plain(), ParsedReceipt, receiptDate(), ReceiptItem (+29 more)
 
 ### Community 15 - "env"
 Cohesion: 0.08
@@ -154,9 +146,13 @@ Nodes (15): Budget-Reactive Mascot, Landing page feature list, Currency from Cou
 Cohesion: 0.22
 Nodes (9): Android OAuth Client (package + SHA-1), Turning on Google Sheets sync (setup guide), OAuth Consent Screen (External, Published), Release key SHA-1 fingerprint, Sheets Sync Troubleshooting, AuthorizationClient (Play Services), Google Sheets Sync (Export Only), WorkManager Sync Job (+1 more)
 
+### Community 19 - "MonthBar.kt"
+Cohesion: 0.13
+Nodes (10): alertArgb(), barTotal(), CategoryColors, freeAndTarget(), MonthBar(), monthBlocks(), MonthDetails(), monthSegments() (+2 more)
+
 ### Community 20 - "DateScreen.kt"
-Cohesion: 0.12
-Nodes (12): overdrawn(), Totals, Tx, coverTopups(), DateBudgetFold(), dateCover(), dateLine(), DateRefresh() (+4 more)
+Cohesion: 0.08
+Nodes (30): advance(), budgetRows(), Contributions, creditDate(), currentStep(), Every, FORTNIGHT, MONTH (+22 more)
 
 ### Community 21 - "Date budget shared with a partner (Firestore)"
 Cohesion: 0.23
@@ -166,17 +162,9 @@ Nodes (13): Redirect to budgeter.liewjiaen.com, Budgeter landing page, Budgeter 
 Cohesion: 0.47
 Nodes (4): Repository secrets (keystore, keystore password, FIREBASE_API_KEY), Test and build step (gradle testDebugUnitTest + assembleRelease), Release GitHub Actions workflow, Release flow (Publish release.cmd, tag, Actions, Release)
 
-### Community 24 - "ExpenseScreen.kt"
-Cohesion: 0.13
-Nodes (6): allocate(), itemShares(), split(), dailyImpact(), SteppedBar(), Toggles()
-
-### Community 25 - "Root.kt"
-Cohesion: 0.10
-Nodes (3): activeTrip(), artId(), moodOf()
-
 ### Community 26 - "Theme.kt"
-Cohesion: 0.09
-Nodes (8): macroTarget(), BudgeterTheme(), Glyph(), Glyphs, Px, Type, Art, WidgetArt
+Cohesion: 0.13
+Nodes (4): BudgeterTheme(), Glyph(), Px, Type
 
 ### Community 30 - "Budgeter Web (React Native for Web)"
 Cohesion: 0.24
@@ -190,22 +178,6 @@ Nodes (7): AI receipt and macros data sent to provider, AI provider access (one 
 Cohesion: 0.50
 Nodes (4): Kind, DANGER, PRIMARY, SECONDARY
 
-### Community 40 - "MonthBar"
-Cohesion: 0.24
-Nodes (10): alertArgb(), barTotal(), CategoryColors, freeAndTarget(), MonthBar(), monthBlocks(), MonthDetails(), monthSegments() (+2 more)
-
-### Community 41 - "Records.kt"
-Cohesion: 0.36
-Nodes (7): Categories, mergeRemote(), recordObjects(), Remote, stampedSince(), toUpload(), withRecord()
-
-### Community 43 - "Phase"
-Cohesion: 0.25
-Nodes (8): Budget, DateState, Phase, Loading, NoBudget, Ready, SignedOut, signOut()
-
-### Community 45 - "Every"
-Cohesion: 0.33
-Nodes (6): advance(), Every, FORTNIGHT, MONTH, WEEK, monthly()
-
 ## Knowledge Gaps
 - **45 isolated node(s):** `ON_TRACK`, `SLIGHTLY_OVER`, `OVER`, `WEEK`, `FORTNIGHT` (+40 more)
   These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 238 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
@@ -214,17 +186,17 @@ Nodes (6): advance(), Every, FORTNIGHT, MONTH, WEEK, monthly()
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `AppState` connect `AppState` to `Small`, `Sheets`, `BudgetScreen.kt`, `Widgets.kt`, `MacrosScreen.kt`, `Sheets.kt`, `MonthBar`, `Records.kt`, `ProfileScreen.kt`, `plain`, `MacrosTest.kt`, `HomeScreen.kt`, `DateScreen.kt`, `ExpenseScreen.kt`, `Root.kt`, `Theme.kt`, `Scanner.kt`?**
-  _High betweenness centrality (0.117) - this node is a cross-community bridge._
+- **Why does `AppState` connect `AppState` to `Small`, `Sheets`, `BudgetScreen.kt`, `MacrosScreen.kt`, `Sheets.kt`, `App`, `WidgetArt.kt`, `TxnsScreen.kt`, `plain`, `MonthBar.kt`, `DateScreen.kt`, `Art`, `Root.kt`, `Scanner.kt`?**
+  _High betweenness centrality (0.125) - this node is a cross-community bridge._
 - **Are the 15 inferred relationships involving `AppState` (e.g. with `.aDateExpenseHasAtMostOneOverspendChargeReplacedOnEverySave()` and `.bankBalanceIsTheEnteredBalancePlusWhatMovedAfterItsDay()`) actually correct?**
   _`AppState` has 15 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `ON_TRACK`, `SLIGHTLY_OVER`, `OVER` to the rest of the system?**
   _45 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Small` be split into smaller, more focused modules?**
-  _Cohesion score 0.09065372829417773 - nodes in this community are weakly interconnected._
-- **Why does `App` connect `Widgets.kt` to `Small`, `BudgetScreen.kt`, `MacrosScreen.kt`, `Sheets.kt`, `DateClient.kt`, `ProfileScreen.kt`, `DateScreen.kt`, `ExpenseScreen.kt`, `Root.kt`?**
-  _High betweenness centrality (0.029) - this node is a cross-community bridge._
+  _Cohesion score 0.08935574229691877 - nodes in this community are weakly interconnected._
+- **Why does `money()` connect `Small` to `BudgetScreen.kt`, `Widgets.kt`, `MacrosScreen.kt`, `WidgetArt.kt`, `TxnsScreen.kt`, `plain`, `MonthBar.kt`, `DateScreen.kt`, `Art`?**
+  _High betweenness centrality (0.031) - this node is a cross-community bridge._
 - **Are the 35 inferred relationships involving `Small()` (e.g. with `CameraScreen()` and `CompactScreen()`) actually correct?**
   _`Small()` has 35 INFERRED edges - model-reasoned connections that need verification._
 - **Should `AppState` be split into smaller, more focused modules?**
-  _Cohesion score 0.09966329966329966 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.07515734912995187 - nodes in this community are weakly interconnected._

@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import com.nyxulrix.budgeter.R
 import com.nyxulrix.budgeter.data.editSetup
 import com.nyxulrix.budgeter.data.bankBalance
+import com.nyxulrix.budgeter.data.bankSavings
 import com.nyxulrix.budgeter.data.bankStart
 import com.nyxulrix.budgeter.data.Bank
 import com.nyxulrix.budgeter.core.plain
@@ -225,9 +226,13 @@ private fun BankRow(st: AppState) {
                 PixelButton(if (shown) "Hide" else "Show", { shown = !shown }, kind = Kind.SECONDARY)
             }
         }
+        if (balance != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Small("Savings in it", Modifier.weight(1f))
+            Text(if (shown) money(st.bankSavings() ?: 0, cur) else "••••••", style = Type.body, color = Px.green)
+        }
         if (balance == null) Small("Enter what was in your bank before you started Budgeter to check every deduction against it.")
         if (shown && bank != null) {
-            Small("${money(bank.amount, cur)} in the bank on ${bank.date}, plus income and extra money, less fixed costs and everything paid since. Different from the bank? Something wasn't logged.")
+            Small("${money(bank.amount, cur)} on ${bank.date} plus everything logged since. Savings: that plus what finished months saved.")
             PixelButton("Starting balance", { editing = true }, kind = Kind.SECONDARY)
         }
     }

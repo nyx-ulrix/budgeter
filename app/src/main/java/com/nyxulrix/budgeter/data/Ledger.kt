@@ -77,6 +77,15 @@ val Txn.cashOut: Long get() =
     if (payer == ME) total - paidBack.filter { it != ME }.sumOf { shares[it] ?: 0 }
     else if (ME in paidBack) myShare else 0
 
+/**
+ * The part of the bank balance that is savings: the starting balance plus what every finished month saved
+ * (this month's money and anything set aside for later aren't in it). Null before a balance is entered.
+ */
+fun AppState.bankSavings(today: LocalDate = LocalDate.now()): Long? {
+    val bank = setup?.bank ?: return null
+    return bank.amount + savedToDate(periodOf(today).key, today)
+}
+
 /** The day before the first budget month: a bank balance from then means everything logged since counts. */
 fun AppState.bankStart(): String {
     val first = plans.keys.minOrNull()
@@ -125,6 +134,18 @@ fun AppState.spendable(key: String, asOf: LocalDate? = null): Long =
 private fun Txn.inBudget(p: Period) = !deleted && tripId == null && LocalDate.parse(date) in p
 
 fun AppState.spent(p: Period): Long = txns.filter { it.inBudget(p) }.sumOf { it.budgetImpact }
+
+/** What a month's budget spending came to per day, on average over all its days (whole minor units, rounded down). */
+fun AppState.dailyAverage(key: String): Long {
+    val p = Period.ofKey(key, startDay)
+    return spent(p) / ChronoUnit.DAYS.between(p.start, p.end).coerceAtLeast(1)
+}
+
+/** What I can spend per day for the rest of the month from [today] on, today included: what's left ÷ days left. */
+fun AppState.perDayLeft(today: LocalDate = LocalDate.now()): Long {
+    val p = periodOf(today)
+    return (spendable(p.key) - spent(p)) / ChronoUnit.DAYS.between(today, p.end).coerceAtLeast(1)
+}
 
 data class Snapshot(
     val period: Period,
