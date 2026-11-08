@@ -72,9 +72,9 @@
     "semantic_hash": "ce262c89b43a68a5da44db753d13b308"
   },
   "app/src/main/java/com/nyxulrix/budgeter/data/Ledger.kt": {
-    "mtime": 1794099065.0806952,
-    "seen": 1794099119.1904356,
-    "ast_hash": "9e55c2c5a014eba79997eb9c65bcc20d",
+    "mtime": 1794099713.8630435,
+    "seen": 1794100047.9965384,
+    "ast_hash": "805f4140fa1640ea6611b392202b7304",
     "semantic_hash": ""
   },
   "app/src/main/java/com/nyxulrix/budgeter/data/Rates.kt": {
@@ -186,9 +186,9 @@
     "semantic_hash": ""
   },
   "app/src/test/java/com/nyxulrix/budgeter/data/LedgerTest.kt": {
-    "mtime": 1794099065.097975,
-    "seen": 1794099119.1904721,
-    "ast_hash": "f26e079cfe20a093f33fa51363d1b6f1",
+    "mtime": 1794099759.7636456,
+    "seen": 1794100047.9965737,
+    "ast_hash": "685c71a911dd0a13e563a3ebeba82c1c",
     "semantic_hash": ""
   },
   "build.gradle.kts": {
@@ -216,9 +216,9 @@
     "semantic_hash": "e04805842dd4ad64528bd817b557f81f"
   },
   "PLAN.md": {
-    "mtime": 1794099115.8942428,
-    "seen": 1794099119.1904845,
-    "ast_hash": "b417a1b56fc34cc12b2e0e04a895fcad",
+    "mtime": 1794100044.8472028,
+    "seen": 1794100047.996586,
+    "ast_hash": "16a34e2dcc2990c8c1f8aa9a2e726469",
     "semantic_hash": ""
   },
   "README.md": {
@@ -420,10 +420,10 @@
     "semantic_hash": ""
   },
   "app/src/main/java/com/nyxulrix/budgeter/core/DateMoney.kt": {
-    "mtime": 1793088597.2642894,
-    "seen": 1793089241.0363195,
-    "ast_hash": "d8c85b62c2b6579645aea9b8e04b2dae",
-    "semantic_hash": "d8c85b62c2b6579645aea9b8e04b2dae"
+    "mtime": 1794099713.86223,
+    "seen": 1794100047.9965272,
+    "ast_hash": "250d8caf95e8b914a6e127c2e726972c",
+    "semantic_hash": ""
   },
   "app/src/main/java/com/nyxulrix/budgeter/date/DateClient.kt": {
     "mtime": 1793499358.7363784,
@@ -432,16 +432,16 @@
     "semantic_hash": ""
   },
   "app/src/main/java/com/nyxulrix/budgeter/ui/DateScreen.kt": {
-    "mtime": 1793499931.3836155,
-    "seen": 1793499981.3235474,
-    "ast_hash": "511b735976ca22a481fd81517a4bab2c",
+    "mtime": 1794099889.8569272,
+    "seen": 1794100047.9965525,
+    "ast_hash": "8c77597e645b9213078ca52092bc5a33",
     "semantic_hash": ""
   },
   "app/src/test/java/com/nyxulrix/budgeter/core/DateMoneyTest.kt": {
-    "mtime": 1793088597.2682865,
-    "seen": 1793089241.0363922,
-    "ast_hash": "c936326acca154f65137c2c6a45e48d0",
-    "semantic_hash": "c936326acca154f65137c2c6a45e48d0"
+    "mtime": 1794099713.8627362,
+    "seen": 1794100047.9965715,
+    "ast_hash": "60b771868ae5d4baaa0ee5a0e571e238",
+    "semantic_hash": ""
   },
   "app/src/main/java/com/nyxulrix/budgeter/ai/Food.kt": {
     "mtime": 1793088597.264129,

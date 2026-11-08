@@ -266,4 +266,23 @@ class LedgerTest {
         assertEquals(50_000L + 75_000 - 2_000 - 7_000 + 75_000, st.bankBalance(nov1, paid))        // October ended; my share never counts
         assertEquals(50_000L + 75_000 - 1_300 - 2_000 - 15_000 + 75_000, st.bankBalance(nov1))
     }
+
+    @Test fun datePoolSetAsideContributionsAndTransfers() {
+        val pool = Line(kind = LineKind.RESERVE, name = "Date budget (half the pool)", amount = 15_000, tag = "date")
+        val st = AppState(
+            setup.copy(bank = Bank(0, "2026-09-30")),
+            plans = mapOf("2026-10" to Plan(100_000, listOf(pool))),
+            txns = listOf(Txn(date = "2026-10-25", total = -15_000, merchant = "From Fang", note = DATE_TRANSFER)),
+        )
+        assertEquals(listOf(Triple(LineKind.RESERVE, 15_000L, "date")), st.planFor("2026-11").lines.map { Triple(it.kind, it.amount, it.tag) })   // carried over
+        assertEquals(100_000L - 15_000, st.spendable("2026-10"))    // set aside, not spendable
+        assertEquals(100_000L - 15_000, st.monthSaved("2026-10"))   // nor saved; the transfer is neither spending nor income
+        val dates = listOf(
+            com.nyxulrix.budgeter.core.Tx("a", "expense", 20_000, "dinner", "2026-10-04", "me"),
+            com.nyxulrix.budgeter.core.Tx("b", "expense", 4_000, "coffee", "2026-10-10", "fang"),
+            com.nyxulrix.budgeter.core.Tx("c", "topup", 30_000, "Budget", "2026-10-01", ""),
+        )
+        assertEquals(DateContributions(20_000, 4_000, 15_000, 5_000, 19_000), st.dateContributions(com.nyxulrix.budgeter.core.Period.ofKey("2026-10", 1), dates, "me"))
+        assertEquals(100_000L - 20_000 + 15_000, st.bankBalance(LocalDate.of(2026, 10, 31), dates.filter { it.kind == "expense" && it.by == "me" }))
+    }
 }

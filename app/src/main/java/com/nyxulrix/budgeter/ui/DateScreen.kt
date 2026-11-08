@@ -38,7 +38,7 @@ import com.nyxulrix.budgeter.App
 import com.nyxulrix.budgeter.core.Every
 import com.nyxulrix.budgeter.core.Period
 import com.nyxulrix.budgeter.core.Tx
-import com.nyxulrix.budgeter.core.contributions
+import com.nyxulrix.budgeter.core.currentStep
 import com.nyxulrix.budgeter.core.money
 import com.nyxulrix.budgeter.core.overdrawn
 import com.nyxulrix.budgeter.core.parseMoney
@@ -47,6 +47,10 @@ import com.nyxulrix.budgeter.core.totals
 import com.nyxulrix.budgeter.core.withBudget
 import com.nyxulrix.budgeter.data.overspendsFor
 import com.nyxulrix.budgeter.data.AppState
+import com.nyxulrix.budgeter.data.saveTxn
+import com.nyxulrix.budgeter.data.dateContributions
+import com.nyxulrix.budgeter.data.Txn
+import com.nyxulrix.budgeter.data.DATE_TRANSFER
 import com.nyxulrix.budgeter.data.Line
 import com.nyxulrix.budgeter.data.LineKind
 import com.nyxulrix.budgeter.data.currency
@@ -65,7 +69,7 @@ private const val GOOGLE_CLIENT_ID = "1080294508933-ii65fgq3frcfnkg9smq55otiqlnn
 
 private fun today() = LocalDate.now().toString()
 
-/** The personal budget line that sets aside my share of the date budget each month (a fixed cost, carried over). */
+/** The personal budget line that sets money aside for dates each month (a set-aside, carried over; tag "date"). */
 fun AppState.dateLine(key: String = periodOf(LocalDate.now()).key): Line? = planFor(key).lines.firstOrNull { it.tag == "date" }
 
 /** What the shared budget adds per month on average: weekly ×52/12, fortnightly ×26/12. */
@@ -75,12 +79,15 @@ private fun monthly(amount: Long, every: Every) = when (every) {
     Every.MONTH -> amount
 }
 
-/** Sets my monthly share as a "Date budget" fixed cost from this month on (replacing any earlier amount this month). */
-private fun setMyShare(amount: Long) {
+/** Half the pool, rounded up: what's set aside in my budget until I choose another amount. */
+private fun half(amount: Long) = (amount + 1) / 2
+
+/** Sets [amount] aside for dates in my budget from this month on (replacing any earlier amount this month). Not a bank movement. */
+private fun setPoolAside(amount: Long) {
     val key = App.store.value.periodOf(LocalDate.now()).key
     App.store.editPlan(key) { p ->
         p.copy(lines = p.lines.filter { it.tag != "date" } +
-            if (amount > 0) listOf(Line(kind = LineKind.FIXED, name = "Date budget (my share)", amount = amount, tag = "date", added = today())) else emptyList())
+            if (amount > 0) listOf(Line(kind = LineKind.RESERVE, name = "Date budget", amount = amount, tag = "date", added = today())) else emptyList())
     }
 }
 
@@ -127,13 +134,13 @@ fun DateBudgetFold(st: AppState, period: Period) {
     val ds by DateClient.state.collectAsState()
     val cur = st.currency
     DateRefresh()
-    LaunchedEffect(ds.budget) {   // a split changed on the partner's side moves my set-aside too
+    // A set-aside for dates in my budget: half the pool to start with (it used to be my share, as a fixed cost).
+    // Once there is one, its amount is mine to set (Pool → Set aside), so the pool changing doesn't touch it.
+    LaunchedEffect(ds.budget) {
         val b = ds.budget ?: return@LaunchedEffect
-        val uid = ds.uid ?: return@LaunchedEffect
-        val (step, mine) = contributions(b.plan, today(), uid, b.members.firstOrNull { it != uid })
-        if (step?.split == null) return@LaunchedEffect   // no agreed split yet: leave my set-aside alone
-        val want = monthly(mine, step.every)
-        if ((App.store.value.dateLine()?.amount ?: 0L) != want) setMyShare(want)
+        val step = currentStep(b.plan, today()) ?: return@LaunchedEffect
+        val line = App.store.value.dateLine()
+        if (step.amount > 0 && (line == null || line.kind != LineKind.RESERVE)) setPoolAside(half(monthly(step.amount, step.every)))
     }
     FoldWindow(if (ds.phase == Phase.Ready) "Date budget · ${money(monthLeft(ds.all, period), cur)} left" else "Date budget", key = "Date budget") {
         ds.error?.let { Small("! $it", color = Px.red) }
@@ -248,6 +255,34 @@ private fun Connect() {
 }
 
 /** The fund for the month picked in the Budget tab: that month's top-ups and spending, and what carries over. */
+/**
+ * Who has put what into the pool this month: the date expenses each of us paid, with my partner's transfers to me
+ * on their side. A transfer adds to "In the bank" (it's a negative expense), not to my budget.
+ */
+@Composable
+private fun Contributions(cur: String, period: Period, partnerName: String) {
+    val st by App.store.state.collectAsState()
+    val ds by DateClient.state.collectAsState()
+    val c = st.dateContributions(period, ds.txs, ds.uid ?: return)
+    var text by remember { mutableStateOf("") }
+    var date by remember { mutableStateOf(LocalDate.now()) }
+    val v = if (text.isBlank()) null else parseMoney(text, cur)
+    Label("Put in this month")
+    KeyValue("You", money(c.mine, cur))
+    KeyValue(partnerName, money(c.theirs, cur))
+    Small("You paid ${money(c.iPaid, cur)} of date spending, $partnerName ${money(c.theyPaid, cur)}" +
+        if (c.transferred != 0L) ", and $partnerName transferred you ${money(c.transferred, cur)}." else ".")
+    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        PixelField(text, { text = it }, "$partnerName transferred me", Modifier.weight(1f), keyboard = KeyboardType.Decimal, placeholder = "0.00",
+            error = if (text.isNotBlank() && (v == null || v <= 0)) "Not an amount" else null)
+        PixelButton("Add", {
+            App.store.saveTxn(Txn(date = date.toString(), total = -v!!, category = "Other", merchant = "From $partnerName", note = DATE_TRANSFER))
+            text = ""
+        }, enabled = v != null && v > 0)
+    }
+    DateField("Transferred on", date, { date = it })
+}
+
 @Composable
 private fun Fund(cur: String, period: Period) {
     val ctx = LocalContext.current
@@ -262,6 +297,7 @@ private fun Fund(cur: String, period: Period) {
         Text(money(left, cur), style = Type.hero, color = if (left < 0) Px.red else Px.brown)
         KeyValue("Added in ${period.key}", money(month.topped, cur))
         KeyValue("Spent in ${period.key}", money(month.spent, cur))
+        if (partner != null) Contributions(cur, period, b.names[partner] ?: "Your partner")
         Rule()
         if (partner != null) Small("Shared with ${b.names[partner] ?: "your partner"}.")
         else {
@@ -278,50 +314,46 @@ private fun Fund(cur: String, period: Period) {
     }
 }
 
-/**
- * The recurring budget for both of you: each person's contribution, added together every week, 2 weeks or month.
- * The split rides along on the plan step (DateBudget ignores it), and my part becomes my monthly set-aside.
- */
+/** The recurring pool for both of you, added every week, 2 weeks or month, and what I set aside for it in my budget each month. */
 @Composable
 private fun PlanWindow(cur: String) {
     val scope = rememberCoroutineScope()
     val ds by DateClient.state.collectAsState()
+    val st by App.store.state.collectAsState()
     val b = ds.budget ?: return
-    val uid = ds.uid ?: return
-    val partner = b.members.firstOrNull { it != uid }
-    val partnerName = partner?.let { b.names[it] } ?: "Your partner"
-    val (step, m0, t0) = contributions(b.plan, today(), uid, partner)
-    var mine by remember { mutableStateOf(step?.let { plain(m0, cur) } ?: "") }
-    var theirs by remember { mutableStateOf(step?.let { plain(t0, cur) } ?: "") }
+    val step = currentStep(b.plan, today())
+    val line = st.dateLine()?.takeIf { it.kind == LineKind.RESERVE }
+    var amount by remember { mutableStateOf(step?.let { plain(it.amount, cur) } ?: "") }
     var every by remember { mutableStateOf(step?.every ?: Every.MONTH) }
     var day by remember { mutableStateOf((step?.day ?: 1).toString()) }
+    var aside by remember { mutableStateOf(line?.let { plain(it.amount, cur) } ?: "") }
     var err by remember { mutableStateOf<String?>(null) }
-    val mv = if (mine.isBlank()) 0L else parseMoney(mine, cur)
-    val tv = if (theirs.isBlank()) 0L else parseMoney(theirs, cur)
+    val v = if (amount.isBlank()) 0L else parseMoney(amount, cur)
+    val a = if (aside.isBlank()) null else parseMoney(aside, cur)   // blank: half the pool
     val d = day.toIntOrNull()
-    val ok = mv != null && tv != null && mv >= 0 && tv >= 0 && (every != Every.MONTH || (d != null && d in 1..31))
-    val total = (mv ?: 0) + (tv ?: 0)
-    Section("Budget for both of you") {
+    val ok = v != null && v >= 0 && (aside.isBlank() || (a != null && a >= 0)) && (every != Every.MONTH || (d != null && d in 1..31))
+    Section("Pool") {
         Small(if (step != null && step.amount > 0)
             "${money(step.amount, cur)} is added every ${step.every.label}" + (if (step.every == Every.MONTH) " on day ${step.day ?: 1}" else " (on Monday)") +
-                ": you ${money(m0, cur)}, $partnerName ${money(t0, cur)}."
-        else "No recurring budget yet.")
-        PixelField(mine, { mine = it }, "You put in ($cur)", keyboard = KeyboardType.Decimal, placeholder = "0.00", error = if (mv == null) "Not a number" else null)
-        PixelField(theirs, { theirs = it }, "$partnerName puts in ($cur)", keyboard = KeyboardType.Decimal, placeholder = "0.00", error = if (tv == null) "Not a number" else null)
+                "; you set ${money(line?.amount ?: 0, cur)} aside in your budget each month."
+        else "No recurring pool yet.")
+        PixelField(amount, { amount = it }, "Pool ($cur)", keyboard = KeyboardType.Decimal, placeholder = "0.00", error = if (v == null) "Not a number" else null)
         Choice(Every.entries, every, { "Every ${it.label}" }, { every = it })
         if (every == Every.MONTH) PixelField(day, { s -> day = s.filter(Char::isDigit).take(2) }, "On day (1-31)", keyboard = KeyboardType.Number)
-        KeyValue("Total every ${every.label}", money(total, cur))
+        PixelField(aside, { aside = it }, "Set aside in my budget each month ($cur)", keyboard = KeyboardType.Decimal,
+            placeholder = plain(half(monthly(v ?: 0, every)), cur), error = if (aside.isNotBlank() && a == null) "Not a number" else null)
         PixelButton("Save", {
             err = null
             val e = every
+            val keep = a ?: half(monthly(v!!, e))   // blank: half the pool
             scope.launch {
                 runCatching {
-                    DateClient.setPlan(withBudget(b.plan, today(), total, e, if (e == Every.MONTH) d!! else 1, mapOf(uid to mv!!, (partner ?: "partner") to tv!!)))
-                    setMyShare(monthly(mv, e))
+                    DateClient.setPlan(withBudget(b.plan, today(), v!!, e, if (e == Every.MONTH) d!! else 1))
+                    setPoolAside(keep)
                 }.onFailure { if (it !is kotlinx.coroutines.CancellationException) err = it.message }
             }
         }, enabled = ok)
-        Small("Starts with the current period; earlier ones keep what they had. Set both to 0 to stop. For one-off extras, add a top-up.")
+        Small("Starts with the current period; earlier ones keep what they had. Set it to 0 to stop. For one-off extras, add a top-up.")
         err?.let { Small("! $it", color = Px.red) }
     }
 }

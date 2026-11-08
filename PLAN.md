@@ -313,3 +313,13 @@ The web app ([budgeter-web](https://github.com/nyx-ulrix/budgeter-web), React Na
 | Date expenses in the bank | Every date budget expense I keyed in counts as paid from my bank, on its date: `bankBalance(s, date, dates)` with the date budget's expenses `by` me (Home passes them once the date budget has loaded). The "Date budget (my share)" fixed cost and the overspend charges then don't come off the bank (they're how the budget counts that money). Budget and savings are unchanged. Without the date budget loaded, the old rule stands in. |
 | Jia En's data | The manual "fx date side" SGD 150 expense (31 Oct) duplicated this; with it removed, and the date budget's 3 Nov "sweet cheeks" (same dinner as 31 Oct) removed, the tally on 2026-11-08 is SGD 704.67 against the bank's 727.47 (starting balance 60.70). |
 
+## 21. Date budget as one pool (v1.16.0, 2026-11-08)
+
+| Area | Now |
+|---|---|
+| One pool | The date budget's plan is one amount (e.g. SGD 300 a month) with no split between us; new plan steps carry no `split` (older ones still read it). Budget → Date budget → Pool sets it. |
+| Set aside | A set-aside line in my budget each month (RESERVE, tag `date`, no planned item; carried into new months by `planFor`). It starts at half the pool (rounded up) and is mine to change (Pool → "Set aside in my budget each month"; blank = half). When the date budget loads it replaces the old "Date budget (my share)" fixed cost, but never overwrites an amount I set. It comes off spendable, isn't savings, and is never a bank movement. Going past the pool still charges the overspend to my budget. |
+| Contributions | The pool shows what each of us put in this month (`dateContributions`): the date expenses each paid, with my partner's transfers to me moved to their side. |
+| Partner transfers | "<partner> transferred me" adds a negative expense (note `Date budget transfer`) on its day: it adds to "In the bank" and to their contribution, and leaves my budget and savings alone (its budget impact is 0). |
+| Bank | Unchanged from §20: every date expense I paid comes off on its day; the set-aside and overspend charges don't. |
+

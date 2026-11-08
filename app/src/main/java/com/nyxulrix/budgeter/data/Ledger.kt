@@ -20,6 +20,25 @@ fun AppState.periodOf(date: LocalDate): Period = periodOf(date, startDay)
 
 val AppState.liveTxns: List<Txn> get() = txns.filter { !it.deleted }
 
+/** The note on money my partner transferred to me for date spending: a negative expense, so it adds to the bank only. */
+const val DATE_TRANSFER = "Date budget transfer"
+
+/** What each of us put into the date pool in a month (see [dateContributions]). */
+data class DateContributions(val iPaid: Long, val theyPaid: Long, val transferred: Long, val mine: Long, val theirs: Long)
+
+/**
+ * What each of us put into the date pool in [p]: the date expenses each paid, with my partner's transfers to me moved
+ * from my side to theirs. [dates] is the date budget's entries; [me] my uid.
+ */
+fun AppState.dateContributions(p: Period, dates: List<com.nyxulrix.budgeter.core.Tx>, me: String): DateContributions {
+    fun inP(d: String) = d >= p.start.toString() && d < p.end.toString()
+    val spent = dates.filter { it.kind == "expense" && inP(it.date) }
+    val transferred = -liveTxns.filter { it.note == DATE_TRANSFER && inP(it.date) }.sumOf { it.total }
+    val iPaid = spent.filter { it.by == me }.sumOf { it.amount }
+    val theyPaid = spent.filter { it.by != me }.sumOf { it.amount }
+    return DateContributions(iPaid, theyPaid, transferred, iPaid - transferred, theyPaid + transferred)
+}
+
 /** The note on my budget's charge for the part of a date expense the shared fund couldn't cover. */
 const val OVERSPEND = "Date budget overspend"
 
@@ -34,10 +53,10 @@ fun AppState.overspendsFor(id: String, date: String, note: String, dates: List<c
 
 /**
  * The plan for a period. A period nobody has edited yet inherits the latest earlier plan's income, fixed costs,
- * savings, caps and monthly budget (not extras, reservations or trip funds, which are one-offs).
+ * savings, the date budget set-aside, caps and monthly budget (not extras, reservations or trip funds, which are one-offs).
  */
 fun AppState.planFor(key: String): Plan = plans[key] ?: plans.filterKeys { it < key }.maxByOrNull { it.key }?.value?.let { p ->
-    Plan(p.income, p.lines.filter { it.kind == LineKind.FIXED || it.kind == LineKind.SAVINGS }.map { it.copy(added = null, paid = null) }, p.caps, p.budget, p.savingsTarget)
+    Plan(p.income, p.lines.filter { it.kind == LineKind.FIXED || it.kind == LineKind.SAVINGS || it.tag == "date" }.map { it.copy(added = null, paid = null) }, p.caps, p.budget, p.savingsTarget)
 } ?: Plan()
 
 /**

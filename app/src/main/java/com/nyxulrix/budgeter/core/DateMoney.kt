@@ -114,18 +114,6 @@ fun withBudget(plan: List<Step>, today: String, amount: Long, every: Every, day:
     return valid(plan).filter { it.from < from } + Step(from, amount, every, if (every == Every.MONTH) day else null, split)
 }
 
-data class Contributions(val step: Step?, val mine: Long, val theirs: Long)
-
-/** Who puts in what for the step in force today: its split, else half each (mine rounded up). */
-fun contributions(plan: List<Step>, today: String, uid: String, partnerUid: String?): Contributions {
-    val step = currentStep(plan, today)
-    val split = step?.split.orEmpty()
-    val amount = step?.amount ?: 0
-    val mine = split[uid] ?: ((amount + 1) / 2)
-    val theirs = partnerUid?.let { split[it] } ?: split["partner"] ?: (amount - mine)
-    return Contributions(step, mine, theirs)
-}
-
 data class Totals(val topped: Long, val spent: Long, val left: Long)
 
 /** Left to spend = top-ups - expenses. Derived, never stored, so it can't drift. */
