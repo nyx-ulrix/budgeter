@@ -216,7 +216,9 @@ private fun BankRow(st: AppState) {
     var shown by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
     val bank = st.setup?.bank
-    val balance = st.bankBalance()
+    val ds by DateClient.state.collectAsState()
+    // Date expenses come out of my bank: the ones I paid, once the date budget has loaded.
+    val balance = st.bankBalance(dates = if (ds.phase == Phase.Ready) ds.txs.filter { it.kind == "expense" && it.by == ds.uid } else null)
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Body("In the bank", Modifier.weight(1f))

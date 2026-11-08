@@ -37,7 +37,7 @@ fun AppState.overspendsFor(id: String, date: String, note: String, dates: List<c
  * savings, caps and monthly budget (not extras, reservations or trip funds, which are one-offs).
  */
 fun AppState.planFor(key: String): Plan = plans[key] ?: plans.filterKeys { it < key }.maxByOrNull { it.key }?.value?.let { p ->
-    Plan(p.income, p.lines.filter { it.kind == LineKind.FIXED || it.kind == LineKind.SAVINGS }.map { it.copy(added = null) }, p.caps, p.budget, p.savingsTarget)
+    Plan(p.income, p.lines.filter { it.kind == LineKind.FIXED || it.kind == LineKind.SAVINGS }.map { it.copy(added = null, paid = null) }, p.caps, p.budget, p.savingsTarget)
 } ?: Plan()
 
 /**
@@ -95,10 +95,14 @@ fun AppState.bankStart(): String {
 /**
  * What should be in the bank at the end of [today], or null before a balance is entered: the balance the bank showed
  * at the end of its day, plus the income, extra money and fixed costs after it, less what expenses after it took out.
- * Income and undated lines land on their period's first day, dated lines on the day they were added. Money set aside
- * (savings, reservations, trip funds) is still in the bank. Date budget expenses are paid from the "my share" fixed cost.
+ * Income and undated lines land on their period's first day, dated lines on the day they were added. A fixed cost in
+ * a month that hasn't ended counts only once it's ticked as deducted, on the day it was ticked. Money set aside
+ * (savings, reservations, trip funds) is still in the bank.
+ * With [dates] (the date budget expenses I paid, once the date budget has loaded), those come off on their days, and
+ * my monthly share and the overspend charges don't: they're how the budget counts that money, not bank movements.
+ * Without it, my share and the charges stand in for date spending.
  */
-fun AppState.bankBalance(today: LocalDate = LocalDate.now()): Long? {
+fun AppState.bankBalance(today: LocalDate = LocalDate.now(), dates: List<com.nyxulrix.budgeter.core.Tx>? = null): Long? {
     val bank = setup?.bank ?: return null
     val date = today.toString()
     fun after(d: String) = d > bank.date && d <= date
@@ -107,12 +111,15 @@ fun AppState.bankBalance(today: LocalDate = LocalDate.now()): Long? {
     while (!p.start.isAfter(today)) {
         val plan = planFor(p.key)
         if (after(p.start.toString())) total += plan.income
+        val ended = !p.end.isAfter(today)
         for (l in plan.lines) {
-            if ((l.kind == LineKind.EXTRA || l.kind == LineKind.FIXED) && after(l.added ?: p.start.toString())) total += if (l.kind == LineKind.EXTRA) l.amount else -l.amount
+            if (l.kind == LineKind.EXTRA && after(l.added ?: p.start.toString())) total += l.amount
+            if (l.kind == LineKind.FIXED && !(dates != null && l.tag == "date") && (if (l.paid != null) after(l.paid) else ended && after(l.added ?: p.start.toString()))) total -= l.amount
         }
         p = p.next()
     }
-    return total - liveTxns.filter { after(it.date) }.sumOf { it.cashOut }
+    val paid = liveTxns.filter { after(it.date) && !(dates != null && it.note == OVERSPEND) }
+    return total - paid.sumOf { it.cashOut } - dates.orEmpty().filter { after(it.date) }.sumOf { it.amount }
 }
 
 fun Plan.total(kind: LineKind): Long = lines.filter { it.kind == kind }.sumOf { it.amount }

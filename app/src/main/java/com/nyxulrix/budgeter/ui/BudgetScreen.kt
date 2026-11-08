@@ -1,6 +1,12 @@
 package com.nyxulrix.budgeter.ui
 
 import androidx.compose.foundation.background
+import com.nyxulrix.budgeter.data.togglePaid
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -261,14 +267,27 @@ private fun LinesWindow(title: String, kind: LineKind, key: String, plan: Plan, 
     FoldWindow(if (total > 0) "$title · ${money(total, cur)}" else title, key = title) {
         LineEditor(kind, key, plan, cur)
         Small(hint)
+        if (kind == LineKind.FIXED) Small("Tick a cost once it has been deducted from your bank. This month, only ticked ones come off \"In the bank\".")
     }
+}
+
+/** A fixed cost's "already deducted from the bank" tick: only ticked ones come off "In the bank" this month. */
+@Composable
+private fun PaidBox(paid: Boolean, name: String, onToggle: () -> Unit) {
+    Box(
+        Modifier.size(28.dp).border(2.dp, Px.brown).background(if (paid) Px.green else Px.creamLight)
+            .toggleable(value = paid, role = Role.Checkbox) { onToggle() }
+            .semantics { contentDescription = "$name deducted already" },
+        contentAlignment = Alignment.Center,
+    ) { if (paid) Text("✓", style = Type.label, color = Px.creamLight) }
 }
 
 /** List of lines of one kind with remove buttons, plus an add row. */
 @Composable
 private fun LineEditor(kind: LineKind, key: String, plan: Plan, cur: String) {
     plan.lines.filter { it.kind == kind }.forEach { l ->
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (kind == LineKind.FIXED) PaidBox(l.paid != null, l.name) { App.store.togglePaid(key, l.id) }
             Body(l.name, Modifier.weight(1f))
             Text(money(l.amount, cur), style = Type.body)
             CloseButton { App.store.removeLine(key, l.id) }

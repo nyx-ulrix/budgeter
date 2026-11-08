@@ -305,3 +305,11 @@ The web app ([budgeter-web](https://github.com/nyx-ulrix/budgeter-web), React Na
 | Daily amounts | Spendable.exe: a finished month shows what it spent a day on average (`dailyAverage`: budget spending ÷ the month's days); this month shows what can be spent a day for the days left, today included (`perDayLeft`: spendable − spent, ÷ days left). Past months rows show each month's average a day. Both round down to whole cents, the same on both apps. |
 | Taste audit (UI) | design-taste-frontend app-screen checks, kept to the app's pixel style. Fixed: a fold's total now closes its list (above the add row); a finished month says "Spent", not "Spent so far"; the bank note on Home is one short line. |
 
+## 20. Fixed costs ticked as deducted, date expenses in the bank (v1.15.0, 2026-11-08)
+
+| Area | Now |
+|---|---|
+| Deducted tick | Each fixed cost in Budget → Fixed costs has a tick box: ticked once it has left the bank (`Line.paid`, the day ticked; synced with the plan; dropped when a plan is carried into a new month). In a month that hasn't ended, "In the bank" takes off a fixed cost only once it's ticked, on that day. Fixed costs of finished months count as before. |
+| Date expenses in the bank | Every date budget expense I keyed in counts as paid from my bank, on its date: `bankBalance(s, date, dates)` with the date budget's expenses `by` me (Home passes them once the date budget has loaded). The "Date budget (my share)" fixed cost and the overspend charges then don't come off the bank (they're how the budget counts that money). Budget and savings are unchanged. Without the date budget loaded, the old rule stands in. |
+| Jia En's data | The manual "fx date side" SGD 150 expense (31 Oct) duplicated this; with it removed, and the date budget's 3 Nov "sweet cheeks" (same dinner as 31 Oct) removed, the tally on 2026-11-08 is SGD 704.67 against the bank's 727.47 (starting balance 60.70). |
+

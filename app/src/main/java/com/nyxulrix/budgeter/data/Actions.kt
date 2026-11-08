@@ -17,6 +17,11 @@ fun Store.editPlan(key: String, f: (Plan) -> Plan) = update { st -> st.copy(plan
 
 /** Adds a line dated today, so it changes spendable money from today on, not for days already past. */
 fun Store.addLine(key: String, line: Line) = editPlan(key) { it.copy(lines = it.lines + line.copy(added = line.added ?: LocalDate.now().toString())) }
+/** Ticks or unticks a fixed cost as already deducted from the bank (ticked today). */
+fun Store.togglePaid(key: String, id: String) = editPlan(key) { p ->
+    p.copy(lines = p.lines.map { if (it.id != id) it else it.copy(paid = if (it.paid != null) null else LocalDate.now().toString()) })
+}
+
 /** Removes a line. A reservation already spent by "Buy now" stays: its purchase counts on it. */
 fun Store.removeLine(key: String, id: String) = update { st ->
     st.copy(plans = st.plans + (key to st.planFor(key).let { p -> p.copy(lines = p.lines.filterNot { it.id == id && !st.isSpentReserve(it) }) }))

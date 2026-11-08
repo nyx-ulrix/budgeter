@@ -230,7 +230,12 @@ class LedgerTest {
         assertEquals(100_000L, started.bankSavings(LocalDate.of(2026, 10, 20)))                                  // October hasn't ended: none of it yet
         assertEquals(500_000L, st.bankBalance(LocalDate.of(2026, 10, 15)))
         assertEquals(500_000L + 5_000 - 2_000 - 6_000 - 6_000, st.bankBalance(LocalDate.of(2026, 10, 31)))
-        assertEquals(491_000L + 300_000 - 100_000, st.bankBalance(LocalDate.of(2026, 11, 1)))   // November's plan lands on 1 Nov
+        assertEquals(491_000L + 300_000, st.bankBalance(LocalDate.of(2026, 11, 1)))             // November: income on 1 Nov; rent only once ticked
+        val rent = st.planFor("2026-11").lines[0].id
+        val ticked = st.copy(plans = st.plans + ("2026-11" to st.planFor("2026-11").let { p -> p.copy(lines = p.lines.map { if (it.id == rent) it.copy(paid = "2026-11-03") else it }) }))
+        assertEquals(491_000L + 300_000 - 100_000, ticked.bankBalance(LocalDate.of(2026, 11, 5)))
+        assertEquals(491_000L + 300_000, ticked.bankBalance(LocalDate.of(2026, 11, 2)))                    // ticked after that day
+        assertEquals(491_000L + 300_000 - 100_000 + 300_000, st.bankBalance(LocalDate.of(2026, 12, 1)))     // November ended: its rent counts, December's not yet
         val paid = st.copy(txns = st.txns.map { if (it.payer == "P2") it.copy(paidBack = setOf(ME)) else it })
         assertEquals(491_000L - 2_000, paid.bankBalance(LocalDate.of(2026, 10, 31)))           // my share leaves once I pay P2 back
     }
@@ -246,5 +251,19 @@ class LedgerTest {
         val dinner = com.nyxulrix.budgeter.core.Tx("d1", "expense", 7_000, "sweet cheeks", "2026-10-31", "me")
         st = st.withOverspend("d1", "2026-11-02", "sweet cheeks", 0, "Food", 1, old = dinner)          // moved to a month whose fund covers it
         assertEquals(emptyList<Txn>(), st.overspendsFor("d1", "2026-11-02", "sweet cheeks") + st.overspendsFor("d1", "2026-10-31", "sweet cheeks"))
+    }
+
+    @Test fun bankBalanceCountsTheDateExpensesIPaid() {
+        val st = AppState(
+            setup.copy(bank = Bank(50_000, "2026-09-30")),
+            plans = mapOf("2026-10" to Plan(75_000, listOf(Line(kind = LineKind.FIXED, name = "Date budget (my share)", amount = 15_000, tag = "date")))),
+            txns = listOf(Txn(date = "2026-10-31", total = 1_300, merchant = "sweet cheeks", note = OVERSPEND), Txn(date = "2026-10-20", total = 2_000)),
+        )
+        val paid = listOf(com.nyxulrix.budgeter.core.Tx("a", "expense", 7_000, "dinner", "2026-10-31", "me"), com.nyxulrix.budgeter.core.Tx("b", "expense", 650, "prodigal", "2026-11-02", "me"))
+        val oct31 = LocalDate.of(2026, 10, 31); val nov1 = LocalDate.of(2026, 11, 1)
+        assertEquals(50_000L + 75_000 - 1_300 - 2_000, st.bankBalance(oct31))                       // charge stands in; share not ticked yet
+        assertEquals(50_000L + 75_000 - 2_000 - 7_000, st.bankBalance(oct31, paid))                // the dinner I paid instead
+        assertEquals(50_000L + 75_000 - 2_000 - 7_000 + 75_000, st.bankBalance(nov1, paid))        // October ended; my share never counts
+        assertEquals(50_000L + 75_000 - 1_300 - 2_000 - 15_000 + 75_000, st.bankBalance(nov1))
     }
 }
