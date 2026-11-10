@@ -92,6 +92,7 @@ fun HomeScreen(st: AppState) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Small("Today's budget ${money(snap.day.budget, cur)}")
                 Small("Spent ${money(snap.day.spent, cur)}")
+                snap.day.next?.let { if (it < snap.day.budget) Small("From tomorrow ${money(it, cur)} a day") }
                 if (dsTop.phase == Phase.Ready) Small("Date budget ${money(monthLeft(dsTop.all, snap.period), cur)} left")
             }
             PixelProgress(

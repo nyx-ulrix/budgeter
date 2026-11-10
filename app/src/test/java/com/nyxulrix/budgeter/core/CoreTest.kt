@@ -72,6 +72,18 @@ class CoreTest {
         val groceries = today(31_000, listOf(DaySpend(0), DaySpend(0, monthly = 2_500)), 0, 0, LocalDate.of(2026, 10, 3), p)
         assertEquals(0L, groceries.bonus)
         assertEquals(982L, groceries.budget)
+        // Bought today: groceries past the leftovers lower today's budget at once, not from tomorrow.
+        val oct3 = LocalDate.of(2026, 10, 3)
+        val shop = today(31_000, listOf(DaySpend(500), DaySpend(0)), 0, 2_500, oct3, p)   // 1,500 leftovers, 29 days
+        assertEquals(0L, shop.bonus)
+        assertEquals(965L, shop.budget)                                                  // (30,500 − 2,500) ÷ 29
+        val small = today(31_000, listOf(DaySpend(500), DaySpend(0)), 0, 1_000, oct3, p)
+        assertEquals(1_000L, small.budget)                                               // leftovers cover it
+        assertEquals(500L, small.bonus)
+        // An overspend today shows what every later day becomes.
+        assertEquals(866L, today(31_000, emptyList(), 5_000, 0, LocalDate.of(2026, 10, 1), p).next)  // 26,000 ÷ 30
+        assertEquals(1_000L, today(31_000, emptyList(), 500, 0, LocalDate.of(2026, 10, 1), p).next)  // later days hold
+        assertEquals(null, today(31_000, List(30) { DaySpend(1_000) }, 0, 0, LocalDate.of(2026, 10, 31), p).next)
     }
 
     @Test fun pacing() {

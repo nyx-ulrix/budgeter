@@ -323,3 +323,10 @@ The web app ([budgeter-web](https://github.com/nyx-ulrix/budgeter-web), React Na
 | Partner transfers | "<partner> transferred me" adds a negative expense (note `Date budget transfer`) on its day: it adds to "In the bank" and to their contribution, and leaves my budget and savings alone (its budget impact is 0). |
 | Bank | Unchanged from §20: every date expense I paid comes off on its day; the set-aside and overspend charges don't. |
 
+
+## 22. Daily budget recalculated straight after a purchase (v1.17.0, 2026-11-11)
+
+| Area | Now |
+|---|---|
+| Monthly purchases today | Monthly-category spending made today (groceries, bills, date overspend charges) still uses up the saved-up leftovers first. Whatever is past them now lowers today's budget at once, along with every later day's. Before, it only did so from tomorrow (`today()` in `core/budget.ts` / `core/Budget.kt`). |
+| From tomorrow | `Day.next` is each later day's budget if nothing more is spent today (none on the period's last day). Home shows "From tomorrow SGD X a day" next to today's budget when today's spending has lowered it, so an overspend shows the new daily amount straight away. Today's own budget stays put: spending past it is today's overspend. |

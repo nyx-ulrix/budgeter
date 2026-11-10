@@ -29,7 +29,11 @@ fun periodOf(date: LocalDate, startDay: Int): Period {
  * Today's money: a [budget] for the day plus a soft [bonus] saved up from earlier days this month.
  * Spending into the bonus isn't overspending; only going past both is.
  */
-data class Day(val budget: Long, val spent: Long, val bonus: Long = 0) {
+data class Day(
+    val budget: Long, val spent: Long, val bonus: Long = 0,
+    /** Each later day's budget if nothing more is spent today; null on the period's last day. */
+    val next: Long? = null,
+) {
     val available: Long get() = budget + bonus
     /** Today's own budget left, the headline number. Below zero means you're into the saved-up bonus. */
     val dailyLeft: Long get() = budget - spent
@@ -67,10 +71,15 @@ fun today(
         bonus = (bonus + budget - s.daily - s.monthly).coerceIn(0, (p - s.daily - s.monthly).coerceAtLeast(0))
         d = d.plusDays(1)
     }
-    val p = pool(spendable)
-    bonus = bonus.coerceAtMost(p)
-    val budget = (p - bonus) / ChronoUnit.DAYS.between(date, period.end).coerceAtLeast(1)
-    return Day(budget, spentToday, (bonus - monthlyToday).coerceIn(0, p))
+    // Monthly spending today uses the leftovers first, then lowers today's budget along with every later day's.
+    val avail = (pool(spendable) - monthlyToday).coerceAtLeast(0)
+    bonus = (bonus.coerceAtMost(pool(spendable)) - monthlyToday).coerceIn(0, avail)
+    val days = ChronoUnit.DAYS.between(date, period.end).coerceAtLeast(1)
+    val budget = (avail - bonus) / days
+    // Tomorrow on: today's spending past its budget and the leftovers lowers every remaining day straight away.
+    val rest = (avail - spentToday).coerceAtLeast(0)
+    val next = if (days > 1) (rest - (bonus + budget - spentToday).coerceIn(0, rest)) / (days - 1) else null
+    return Day(budget, spentToday, bonus, next)
 }
 
 /** Spending speed against an even pace through the month. Being over the whole budget is separate ([Snapshot.over]). */
