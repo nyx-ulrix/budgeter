@@ -221,3 +221,33 @@ fun Store.setDaily(category: String, daily: Boolean) = update {
 }
 
 fun Store.setSync(f: (SyncInfo) -> SyncInfo) = update { it.copy(sync = f(it.sync)) }
+
+/**
+ * Keeps one "Date budget I paid" charge per budget month in my budget, [datePaid] for that month, dated on my latest
+ * date expense in it. Its id is fixed per month ("date-paid-2026-11"), so every device writes the same record.
+ * Months before my first budget month are left alone. Returns this state itself when nothing changes.
+ */
+fun AppState.withDatePaid(dates: List<com.nyxulrix.budgeter.core.Tx>, me: String, today: LocalDate, now: Long): AppState {
+    val first = plans.keys.minOrNull() ?: return this
+    var out = this
+    var p = com.nyxulrix.budgeter.core.Period.ofKey(first, startDay)
+    while (!p.start.isAfter(today)) {
+        val amount = out.datePaid(p, dates, me)
+        val date = dates.filter { it.kind == "expense" && it.by == me && LocalDate.parse(it.date) in p }.maxOfOrNull { it.date } ?: p.start.toString()
+        val id = "date-paid-${p.key}"
+        val period = p
+        out = out.liveTxns.filter { it.note == DATE_PAID && LocalDate.parse(it.date) in period && it.id != id }.fold(out) { s, t -> s.withoutTxn(t.id) }
+        val have = out.liveTxns.firstOrNull { it.id == id }
+        if (amount == 0L) { if (have != null) out = out.withoutTxn(id) }
+        else if (have == null || have.total != amount || have.date != date)
+            out = out.withTxn(Txn(id = id, date = date, total = amount, category = "Other", merchant = "Date money I paid", note = DATE_PAID), now)
+        p = p.next()
+    }
+    return out
+}
+
+/** [withDatePaid], written only when it changes something (so it can run on every change without a loop). */
+fun Store.syncDatePaid(dates: List<com.nyxulrix.budgeter.core.Tx>, me: String) {
+    val today = LocalDate.now()
+    if (value.withDatePaid(dates, me, today, 0) !== value) update { it.withDatePaid(dates, me, today, System.currentTimeMillis()) }
+}

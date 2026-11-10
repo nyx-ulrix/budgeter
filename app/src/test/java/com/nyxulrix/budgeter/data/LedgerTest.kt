@@ -228,6 +228,13 @@ class LedgerTest {
         val started = st.copy(setup = st.setup!!.copy(bank = Bank(100_000, "2026-09-30")))
         assertEquals(100_000L + started.monthSaved("2026-10"), started.bankSavings(LocalDate.of(2026, 11, 15)))   // starting balance + what October saved
         assertEquals(100_000L, started.bankSavings(LocalDate.of(2026, 10, 20)))                                  // October hasn't ended: none of it yet
+        // Never more than what's actually in the bank: a big November purchase leaves less than October saved.
+        val nov15 = LocalDate.of(2026, 11, 15)
+        val spree = started.copy(txns = started.txns + Txn(date = "2026-11-02", total = 500_000))
+        val left = spree.bankBalance(nov15)!!
+        assertTrue(left > 0 && left < 100_000L + started.monthSaved("2026-10"))
+        assertEquals(left, spree.bankSavings(nov15))
+        assertEquals(0L, spree.copy(txns = spree.txns + Txn(date = "2026-11-03", total = 2_000_000)).bankSavings(nov15))  // overdrawn: none
         assertEquals(500_000L, st.bankBalance(LocalDate.of(2026, 10, 15)))
         assertEquals(500_000L + 5_000 - 2_000 - 6_000 - 6_000, st.bankBalance(LocalDate.of(2026, 10, 31)))
         assertEquals(491_000L + 300_000, st.bankBalance(LocalDate.of(2026, 11, 1)))             // November: income on 1 Nov; rent only once ticked
@@ -284,5 +291,30 @@ class LedgerTest {
         )
         assertEquals(DateContributions(20_000, 4_000, 15_000, 5_000, 19_000), st.dateContributions(com.nyxulrix.budgeter.core.Period.ofKey("2026-10", 1), dates, "me"))
         assertEquals(100_000L - 20_000 + 15_000, st.bankBalance(LocalDate.of(2026, 10, 31), dates.filter { it.kind == "expense" && it.by == "me" }))
+    }
+
+    @Test fun dateMoneyIPaidCountsAgainstMyBudget() {
+        val aside = Line(kind = LineKind.RESERVE, name = "Date budget", amount = 15_000, tag = "date")
+        val st = AppState(setup, plans = mapOf("2026-10" to Plan(300_000, listOf(aside))),
+            txns = listOf(Txn(date = "2026-10-12", total = 2_000, note = OVERSPEND, merchant = "Dinner")))   // overspend charge already counted
+        fun tx(id: String, amount: Long, date: String, by: String) = com.nyxulrix.budgeter.core.Tx(id, "expense", amount, id, date, by)
+        val dates = listOf(tx("a", 20_000, "2026-10-04", "me"), tx("b", 18_000, "2026-10-12", "me"), tx("c", 9_000, "2026-10-09", "fang"), tx("d", 5_000, "2026-11-03", "me"))
+        val oct = com.nyxulrix.budgeter.core.Period.ofKey("2026-10", 1)
+        assertEquals(38_000L - 15_000 - 2_000, st.datePaid(oct, dates, "me"))                      // I paid 380; set-aside 150 and charge 20 already count
+        val back = st.copy(txns = st.txns + Txn(date = "2026-10-20", total = -5_000, note = DATE_TRANSFER))
+        assertEquals(16_000L, back.datePaid(oct, dates, "me"))                                       // she paid me 50 back
+        assertEquals(0L, st.datePaid(com.nyxulrix.budgeter.core.Period.ofKey("2026-11", 1), dates, "me"))  // under the set-aside
+        val nov5 = LocalDate.of(2026, 11, 5)
+        val synced = st.withDatePaid(dates, "me", nov5, 1)
+        val charge = synced.txns.single { it.note == DATE_PAID }
+        assertEquals(Triple("date-paid-2026-10", "2026-10-12", 21_000L), Triple(charge.id, charge.date, charge.total))   // on my last date that month
+        assertTrue(synced.withDatePaid(dates, "me", nov5, 2) === synced)                            // nothing changed: same state
+        assertEquals(st.monthSaved("2026-10") - 21_000, synced.monthSaved("2026-10"))              // savings drop by it
+        assertEquals(0L, synced.dailyImpact(charge))                                                 // lowers the month, not that day
+        val repaid = synced.copy(txns = synced.txns + Txn(date = "2026-10-20", total = -21_000, note = DATE_TRANSFER)).withDatePaid(dates, "me", nov5, 3)
+        assertTrue(repaid.txns.none { it.id == "date-paid-2026-10" && !it.deleted })                 // paid back in full: charge gone
+        val mine = dates.filter { it.by == "me" }
+        val banked = { s: AppState -> s.copy(setup = setup.copy(bank = Bank(0, "2026-09-30"))).bankBalance(LocalDate.of(2026, 10, 31), mine) }
+        assertEquals(banked(st), banked(synced))                                                     // not a bank movement
     }
 }

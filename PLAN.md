@@ -330,3 +330,11 @@ The web app ([budgeter-web](https://github.com/nyx-ulrix/budgeter-web), React Na
 |---|---|
 | Monthly purchases today | Monthly-category spending made today (groceries, bills, date overspend charges) still uses up the saved-up leftovers first. Whatever is past them now lowers today's budget at once, along with every later day's. Before, it only did so from tomorrow (`today()` in `core/budget.ts` / `core/Budget.kt`). |
 | From tomorrow | `Day.next` is each later day's budget if nothing more is spent today (none on the period's last day). Home shows "From tomorrow SGD X a day" next to today's budget when today's spending has lowered it, so an overspend shows the new daily amount straight away. Today's own budget stays put: spending past it is today's overspend. |
+
+## 23. Savings capped at the bank; date money I paid is mine (v1.18.0)
+
+| Area | Now |
+|---|---|
+| Savings in it | `bankSavings` is the starting balance plus what finished months saved, but never more than "In the bank" (the same `dates`), and never below 0. |
+| Date money I paid | `datePaid(p)`: what my card paid for dates in a month, less my partner's transfers to me (`Date budget transfer`), past what the set-aside line and overspend charges already count. Never below 0, so the set-aside is the minimum. Money I front for my partner is my spending unless they pay me back. |
+| The charge | `syncDatePaid` / `withDatePaid` keep one `Date budget I paid` expense per budget month (id `date-paid-<month>`, so both apps write the same record), dated on my latest date expense that month. Months before the first budget month are skipped. It runs whenever the date budget or my data changes (web `Root` effect, Android `MainActivity` flow) and writes only when something changed. It lowers the month and the daily budgets (not that day's own spending: `dailyImpact` 0) and, like overspend charges, isn't a bank movement once the date expenses come off the bank directly. |

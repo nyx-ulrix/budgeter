@@ -31,6 +31,13 @@ class MainActivity : ComponentActivity() {
             DateClient.resume()
             com.nyxulrix.budgeter.ui.dateGoogleSignIn(this@MainActivity, quiet = true)
         }
+        // Date money I paid beyond my set-aside counts against my budget: kept in step with the date budget.
+        lifecycleScope.launch {
+            kotlinx.coroutines.flow.combine(DateClient.state, App.store.state) { ds, st -> ds to st }.collect { (ds, st) ->
+                val uid = ds.uid
+                if (ds.phase == Phase.Ready && uid != null && st.setup != null) App.store.syncDatePaid(ds.txs, uid)
+            }
+        }
         setContent { BudgeterTheme { Root(nav) } }
     }
 

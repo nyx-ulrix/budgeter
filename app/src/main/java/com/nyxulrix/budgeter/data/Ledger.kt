@@ -42,6 +42,21 @@ fun AppState.dateContributions(p: Period, dates: List<com.nyxulrix.budgeter.core
 /** The note on my budget's charge for the part of a date expense the shared fund couldn't cover. */
 const val OVERSPEND = "Date budget overspend"
 
+/** The note on my budget's monthly charge for date money I paid beyond my set-aside and overspend charges. */
+const val DATE_PAID = "Date budget I paid"
+
+/**
+ * What [p]'s date spending costs my budget on top of the set-aside line and the overspend charges: what I paid for
+ * dates less what my partner transferred me, past what those already count. Never below 0 (the set-aside stays as
+ * the minimum). Money I front for my partner is mine unless they pay me back.
+ */
+fun AppState.datePaid(p: Period, dates: List<com.nyxulrix.budgeter.core.Tx>, me: String): Long {
+    val mine = dateContributions(p, dates, me).mine
+    val line = planFor(p.key).lines.firstOrNull { it.tag == "date" }?.amount ?: 0
+    val charged = liveTxns.filter { it.note == OVERSPEND && LocalDate.parse(it.date) in p }.sumOf { it.budgetImpact }
+    return (mine - line - charged).coerceAtLeast(0)
+}
+
 /**
  * My overspend charges for the date expense [id] on [date] named [note]: linked by its id, or (older, unlinked ones)
  * by its day and name, but only when no other expense in [dates] has the same day and name.
@@ -98,11 +113,12 @@ val Txn.cashOut: Long get() =
 
 /**
  * The part of the bank balance that is savings: the starting balance plus what every finished month saved
- * (this month's money and anything set aside for later aren't in it). Null before a balance is entered.
+ * (this month's money and anything set aside for later aren't in it), never more than what's actually in the bank
+ * ([bankBalance], with the same [dates]). Null before a balance is entered.
  */
-fun AppState.bankSavings(today: LocalDate = LocalDate.now()): Long? {
+fun AppState.bankSavings(today: LocalDate = LocalDate.now(), dates: List<com.nyxulrix.budgeter.core.Tx>? = null): Long? {
     val bank = setup?.bank ?: return null
-    return bank.amount + savedToDate(periodOf(today).key, today)
+    return minOf(bank.amount + savedToDate(periodOf(today).key, today), bankBalance(today, dates)!!.coerceAtLeast(0))
 }
 
 /** The day before the first budget month: a bank balance from then means everything logged since counts. */
@@ -137,7 +153,7 @@ fun AppState.bankBalance(today: LocalDate = LocalDate.now(), dates: List<com.nyx
         }
         p = p.next()
     }
-    val paid = liveTxns.filter { after(it.date) && !(dates != null && it.note == OVERSPEND) }
+    val paid = liveTxns.filter { after(it.date) && !(dates != null && (it.note == OVERSPEND || it.note == DATE_PAID)) }
     return total - paid.sumOf { it.cashOut } - dates.orEmpty().filter { after(it.date) }.sumOf { it.amount }
 }
 
@@ -199,11 +215,12 @@ data class Snapshot(
 }
 
 /**
- * The part of a transaction that uses up the day's budget: everything except monthly categories.
- * Itemised bills with per-item categories are split across them.
+ * The part of a transaction that uses up the day's budget: everything except monthly categories and date-paid charges
+ * (a month's date money lowers the month, not that day). Itemised bills with per-item categories are split across them.
  */
 fun AppState.dailyImpact(t: Txn): Long =
-    if (t.items.any { it.category != null })
+    if (t.note == DATE_PAID) 0
+    else if (t.items.any { it.category != null })
         allocate(t.budgetImpact, t.items.map { it.cost.coerceAtLeast(0) }).withIndex()
             .filter { (i, _) -> (t.items[i].category ?: t.category) !in monthlyCategories }.sumOf { it.value }
     else if (t.category in monthlyCategories) 0 else t.budgetImpact

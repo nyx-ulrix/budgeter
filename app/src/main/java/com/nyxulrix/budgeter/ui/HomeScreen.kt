@@ -219,7 +219,8 @@ private fun BankRow(st: AppState) {
     val bank = st.setup?.bank
     val ds by DateClient.state.collectAsState()
     // Date expenses come out of my bank: the ones I paid, once the date budget has loaded.
-    val balance = st.bankBalance(dates = if (ds.phase == Phase.Ready) ds.txs.filter { it.kind == "expense" && it.by == ds.uid } else null)
+    val dates = if (ds.phase == Phase.Ready) ds.txs.filter { it.kind == "expense" && it.by == ds.uid } else null
+    val balance = st.bankBalance(dates = dates)
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Body("In the bank", Modifier.weight(1f))
@@ -231,11 +232,11 @@ private fun BankRow(st: AppState) {
         }
         if (balance != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Small("Savings in it", Modifier.weight(1f))
-            Text(if (shown) money(st.bankSavings() ?: 0, cur) else "••••••", style = Type.body, color = Px.green)
+            Text(if (shown) money(st.bankSavings(dates = dates) ?: 0, cur) else "••••••", style = Type.body, color = Px.green)
         }
         if (balance == null) Small("Enter what was in your bank before you started Budgeter to check every deduction against it.")
         if (shown && bank != null) {
-            Small("${money(bank.amount, cur)} on ${bank.date} plus everything logged since. Savings: that plus what finished months saved.")
+            Small("${money(bank.amount, cur)} on ${bank.date} plus everything logged since. Savings: that plus what finished months saved, up to what's in the bank.")
             PixelButton("Starting balance", { editing = true }, kind = Kind.SECONDARY)
         }
     }
