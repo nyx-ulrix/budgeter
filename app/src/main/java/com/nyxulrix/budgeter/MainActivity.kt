@@ -9,6 +9,7 @@ import androidx.activity.enableEdgeToEdge
 import com.nyxulrix.budgeter.ai.OpenRouterLogin
 import com.nyxulrix.budgeter.date.DateClient
 import com.nyxulrix.budgeter.date.Phase
+import com.nyxulrix.budgeter.data.syncDatePaid
 import com.nyxulrix.budgeter.update.Updater
 import kotlinx.coroutines.launch
 import com.nyxulrix.budgeter.ui.BudgeterTheme
